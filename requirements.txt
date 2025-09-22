@@ -1,0 +1,30 @@
+# PDF processing
+pypdf>=4.0.0
+pikepdf>=8.5.0
+pdfplumber>=0.10.0
+reportlab>=4.0.0
+
+# OCR (for scanned PDFs)
+pytesseract>=0.3.10
+pdf2image>=1.17.0
+
+# Mega cloud storage
+mega.py>=1.0.8
+
+# HTTP requests
+requests>=2.31.0
+
+# Configuration
+PyYAML>=6.0
+python-dotenv>=1.0.0
+
+# Notifications
+python-telegram-bot>=20.6
+
+# Utilities
+tqdm>=4.66.0
+colorama>=0.4.6
+pathlib2>=2.3.7
+
+# CLI
+click>=8.1.0

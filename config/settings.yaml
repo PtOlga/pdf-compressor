@@ -1,0 +1,95 @@
+# Настройки папок в Mega
+folders:
+  input: "/PDF/Input"
+  output: "/PDF/Compressed" 
+  backup: "/PDF/Backup"
+  processed: "/PDF/Processed"  # Для уже обработанных файлов
+
+# Настройки сжатия
+compression:
+  default_level: "medium"
+  
+  # Различные уровни сжатия
+  levels:
+    low:
+      description: "Минимальное сжатие, максимальное качество"
+      ghostscript_preset: "printer"
+      image_quality: 85
+      image_resolution: 150
+      color_image_downsampling: false
+      
+    medium:
+      description: "Оптимальный баланс размера и качества"
+      ghostscript_preset: "ebook"
+      image_quality: 75
+      image_resolution: 120
+      color_image_downsampling: true
+      
+    high:
+      description: "Максимальное сжатие, для веб-использования"
+      ghostscript_preset: "screen"
+      image_quality: 60
+      image_resolution: 96
+      color_image_downsampling: true
+
+# Лимиты обработки
+limits:
+  max_files_per_run: 50
+  max_file_size_mb: 200
+  min_file_size_kb: 100  # Не обрабатывать мелкие файлы
+  timeout_minutes: 60
+  max_parallel_jobs: 3
+
+# Фильтры файлов
+filters:
+  # Паттерны файлов для пропуска
+  skip_patterns:
+    - "*compressed*"
+    - "*_comp.pdf" 
+    - "*optimized*"
+    - "*_small.pdf"
+    - "temp_*"
+  
+  # Расширения для обработки
+  allowed_extensions:
+    - ".pdf"
+    - ".PDF"
+    
+  # Минимальный процент сжатия для сохранения
+  min_compression_percent: 5
+
+# Уведомления
+notifications:
+  telegram:
+    enabled: true
+    on_success: true
+    on_error: true
+    include_stats: true
+    
+  github:
+    create_issues_on_error: true
+    create_summary_comments: true
+    
+  email:
+    enabled: false
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+
+# Безопасность и восстановление
+safety:
+  create_backup: true  # Создавать бэкап перед удалением оригинала
+  verify_compression: true  # Проверять целостность сжатого файла
+  rollback_on_error: true  # Восстанавливать оригинал при ошибке
+  
+# Логирование
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  max_log_files: 10
+  max_log_size_mb: 10
+  include_statistics: true
+
+# Статистика
+statistics:
+  track_savings: true
+  track_processing_time: true
+  generate_monthly_reports: true
