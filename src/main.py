@@ -10,6 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 import traceback
+from typing import Dict, List, Optional
 
 # Добавляем src в путь для импортов
 sys.path.insert(0, str(Path(__file__).parent))
@@ -75,7 +76,7 @@ class PDFBatchCompressor:
             self._initialize_clients()
             
             # Получаем список файлов для обработки
-            self.logger.info(f"🔍 Поиск PDF файлов в: {self.source_folder}")
+            self.logger.info(f"📁 Поиск PDF файлов в: {self.source_folder}")
             pdf_files = self.mega_client.list_pdf_files(self.source_folder)
             
             if not pdf_files:
@@ -100,7 +101,7 @@ class PDFBatchCompressor:
             return 0 if success else 1
             
         except KeyboardInterrupt:
-            self.logger.info("⏹️ Обработка прервана пользователем")
+            self.logger.info("ℹ️ Обработка прервана пользователем")
             self._finalize_stats(success=False, error="Прервано пользователем")
             return 1
             
@@ -138,7 +139,7 @@ class PDFBatchCompressor:
             self.logger.error(f"❌ Ошибка инициализации: {e}")
             raise
     
-    def _process_files(self, pdf_files: list) -> bool:
+    def _process_files(self, pdf_files: List[Dict]) -> bool:
         """Обработка списка PDF файлов"""
         success = True
         
@@ -391,7 +392,7 @@ def main():
         return compressor.run()
         
     except KeyboardInterrupt:
-        print("\n⏹️ Прервано пользователем")
+        print("\nℹ️ Прервано пользователем")
         return 1
     except Exception as e:
         print(f"💥 Критическая ошибка: {e}")
