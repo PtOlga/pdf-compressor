@@ -128,6 +128,39 @@ jobs:
         print("✅ Configuration updated")
         EOF
         
+    - name: 🔍 Debug Mega connection
+      run: |
+        python -c "
+        import os
+        print('Mega credentials check:')
+        print('Email set:', bool(os.getenv('MEGA_EMAIL')))
+        print('Password set:', bool(os.getenv('MEGA_PASSWORD')))
+        
+        try:
+            import sys
+            sys.path.insert(0, 'src')
+            from mega_client import MegaClient
+            print('MegaClient imported successfully')
+            
+            client = MegaClient()
+            print('Mega client created successfully')
+            
+            files = client.list_pdf_files('/PDF/Input')
+            print(f'Found {len(files)} files in /PDF/Input')
+            
+            files2 = client.list_pdf_files('PDF/Input') 
+            print(f'Found {len(files2)} files in PDF/Input')
+            
+            if files or files2:
+                print('File details:')
+                for f in (files + files2)[:3]:
+                    print(f'  - {f.get(\"name\", \"unknown\")} ({f.get(\"size\", 0)} bytes)')
+        except Exception as e:
+            print(f'Error: {e}')
+            import traceback
+            traceback.print_exc()
+        "
+        
     - name: 🗜️ Run compression
       id: compression
       run: |
