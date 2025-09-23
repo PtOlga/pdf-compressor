@@ -159,10 +159,8 @@ jobs:
     - name: 📊 Process results
       if: always()
       run: |
-        # Генерируем детальный отчет
-        python scripts/generate_detailed_report.py \
-          temp/logs/manual_compression.log \
-          temp/logs/stats.json > temp/detailed_report.md
+        # Используем существующий скрипт generate_report.py
+        python scripts/generate_report.py temp/logs/manual_compression.log > temp/detailed_report.md
         
         # Добавляем результаты в step summary
         if [[ -f temp/detailed_report.md ]]; then
@@ -172,12 +170,8 @@ jobs:
     - name: 📱 Send notification
       if: always() && github.event.inputs.send_notification == 'true' && env.TELEGRAM_BOT_TOKEN != ''
       run: |
-        # Отправляем подробное уведомление
-        python scripts/send_detailed_notification.py \
-          temp/detailed_report.md \
-          "${{ steps.compression.outputs.exit_code }}" \
-          "${{ github.run_id }}" \
-          "${{ github.event.inputs.dry_run }}"
+        # Используем существующий скрипт send_notification.py
+        python scripts/send_notification.py temp/detailed_report.md
         
     - name: 📂 Archive results
       if: always()
@@ -193,8 +187,8 @@ jobs:
     - name: 📈 Update statistics
       if: success() && github.event.inputs.dry_run == 'false'
       run: |
-        # Обновляем общую статистику проекта
-        python scripts/update_project_stats.py temp/logs/stats.json
+        # Используем существующий скрипт update_readme_stats.py
+        python scripts/update_readme_stats.py
         
         # Коммитим если есть изменения
         if [[ -n "$(git status --porcelain)" ]]; then
