@@ -33,8 +33,8 @@ class MegaClient:
         self._authenticated = False
         
         # Настройки повторных попыток
-        self.max_retries = 3
-        self.retry_delay = 2  # секунды
+        self.max_retries = 5
+        self.retry_delay = 5  # секунды (увеличено для GitHub Actions)
         
         # Подключаемся к Mega
         self._connect()
@@ -43,16 +43,20 @@ class MegaClient:
         """Подключение к Mega аккаунту"""
         email = self.config.mega_email
         password = self.config.mega_password
-        
+
         if not email or not password:
             raise ValueError(
                 "Не настроены данные для Mega. "
                 "Установите переменные окружения MEGA_EMAIL и MEGA_PASSWORD"
             )
-        
+
         try:
             self.logger.info("🔐 Подключение к Mega...")
             self.logger.debug(f"Email: {email}")
+
+            # Проверяем доступность API
+            self._check_api_availability()
+
             self.mega = Mega()
 
             # Аутентификация с повторными попытками
@@ -79,6 +83,18 @@ class MegaClient:
             import traceback
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             raise
+
+    def _check_api_availability(self):
+        """Проверка доступности Mega API"""
+        try:
+            import requests
+            self.logger.debug("🔍 Проверяю доступность Mega API...")
+            response = requests.get('https://g.api.mega.co.nz/cs', timeout=10)
+            self.logger.debug(f"   API статус: {response.status_code}")
+            if response.status_code != 200:
+                self.logger.warning(f"⚠️ API вернул статус {response.status_code}")
+        except Exception as e:
+            self.logger.warning(f"⚠️ Не удалось проверить API: {e}")
     
     def _check_quota(self):
         """Проверка квоты Mega аккаунта"""
