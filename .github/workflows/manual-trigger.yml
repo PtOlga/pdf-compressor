@@ -6,12 +6,12 @@ on:
       source_folder:
         description: 'Source folder in Mega'
         required: true
-        default: '/PDF/Input'
+        default: '/Cloud Drive/pdf/Input'
         type: string
       target_folder:
         description: 'Target folder in Mega'
         required: true
-        default: '/PDF/Compressed'
+        default: '/Cloud Drive/pdf/Compressed'
         type: string
       compression_level:
         description: 'Compression level'
@@ -135,25 +135,22 @@ jobs:
         print('Mega credentials check:')
         print('Email set:', bool(os.getenv('MEGA_EMAIL')))
         print('Password set:', bool(os.getenv('MEGA_PASSWORD')))
-        
+
         try:
             import sys
             sys.path.insert(0, 'src')
             from mega_client import MegaClient
             print('MegaClient imported successfully')
-            
+
             client = MegaClient()
             print('Mega client created successfully')
-            
-            files = client.list_pdf_files('/PDF/Input')
-            print(f'Found {len(files)} files in /PDF/Input')
-            
-            files2 = client.list_pdf_files('PDF/Input') 
-            print(f'Found {len(files2)} files in PDF/Input')
-            
-            if files or files2:
+
+            files = client.list_pdf_files('/Cloud Drive/pdf/Input')
+            print(f'Found {len(files)} files in /Cloud Drive/pdf/Input')
+
+            if files:
                 print('File details:')
-                for f in (files + files2)[:3]:
+                for f in files[:3]:
                     print(f'  - {f.get(\"name\", \"unknown\")} ({f.get(\"size\", 0)} bytes)')
         except Exception as e:
             print(f'Error: {e}')
@@ -164,28 +161,26 @@ jobs:
     - name: 🗜️ Run compression
       id: compression
       run: |
-        cd src
-        
         # Базовые параметры
         ARGS=(
           "--source" "${{ github.event.inputs.source_folder }}"
           "--target" "${{ github.event.inputs.target_folder }}"
           "--level" "${{ github.event.inputs.compression_level }}"
           "--max-files" "${{ github.event.inputs.max_files }}"
-          "--log-file" "../temp/logs/manual_compression.log"
+          "--log-file" "temp/logs/manual_compression.log"
           "--log-level" "INFO"
-          "--config" "../temp/manual_settings.yaml"
+          "--config" "temp/manual_settings.yaml"
         )
-        
+
         # Добавляем dry-run если нужно
         if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
           ARGS+=("--dry-run")
         fi
-        
+
         # Запускаем компрессию
         echo "🚀 Starting compression with parameters: ${ARGS[@]}"
-        python main.py "${ARGS[@]}"
-        
+        python src/main.py "${ARGS[@]}"
+
         # Сохраняем код возврата
         echo "exit_code=$?" >> $GITHUB_OUTPUT
         
