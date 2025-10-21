@@ -1,9 +1,9 @@
 # Настройки папок в Mega
 folders:
-  input: "/PDF/Input"
-  output: "/PDF/Compressed" 
-  backup: "/PDF/Backup"
-  processed: "/PDF/Processed"  # Для уже обработанных файлов
+  input: "/pdf/Input"
+  output: "/pdf/Compressed" 
+  backup: "/pdf/Backup"
+  processed: "/pdf/Processed"  # Для уже обработанных файлов
 
 # Настройки сжатия
 compression:

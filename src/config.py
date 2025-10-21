@@ -91,17 +91,17 @@ class Config:
     @property
     def input_folder(self) -> str:
         """Папка входных файлов"""
-        return self.get('folders.input', '/PDF/Input')
+        return self.get('folders.input', '/pdf/Input')
     
     @property
     def output_folder(self) -> str:
         """Папка выходных файлов"""
-        return self.get('folders.output', '/PDF/Compressed')
+        return self.get('folders.output', '/pdf/Compressed')
     
     @property
     def backup_folder(self) -> str:
         """Папка резервных копий"""
-        return self.get('folders.backup', '/PDF/Backup')
+        return self.get('folders.backup', '/pdf/Backup')
     
     @property
     def compression_levels(self) -> Dict[str, Dict[str, Any]]:
