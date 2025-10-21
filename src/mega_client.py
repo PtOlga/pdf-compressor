@@ -3,11 +3,11 @@
 Клиент для работы с облачным хранилищем Mega
 """
 
-import os
 import logging
 import time
+import tempfile
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import fnmatch
 
 try:
@@ -111,58 +111,78 @@ class MegaClient:
     def list_pdf_files(self, folder_path: str) -> List[Dict[str, Any]]:
         """
         Получение списка PDF файлов в указанной папке
-        
+
         Args:
             folder_path: путь к папке в Mega
-            
+
         Returns:
             список словарей с информацией о файлах
         """
         self._ensure_connected()
-        
+
         try:
             self.logger.info(f"🔍 Сканирование папки: {folder_path}")
-            
+
             # Получаем все файлы
             files = self._retry_on_failure(self.mega.get_files)
-            
+            self.logger.debug(f"📊 Всего объектов в Mega: {len(files)}")
+
             pdf_files = []
             skip_patterns = self.config.skip_patterns
-            
+
+            # Нормализуем путь папки для сравнения
+            normalized_folder = folder_path.rstrip('/').lower()
+            self.logger.debug(f"🔍 Ищу файлы в папке (нормализованный путь): {normalized_folder}")
+
             for file_id, file_info in files.items():
                 if not isinstance(file_info, dict) or 'a' not in file_info:
                     continue
-                
+
                 file_name = file_info['a'].get('n', '')
                 file_size = file_info.get('s', 0)
-                
-                # Проверяем путь к файлу
-                file_path = self._get_file_path(file_id, files)
-                if not file_path or not file_path.startswith(folder_path.rstrip('/')):
-                    continue
-                
-                # Проверяем расширение
+
+                # Проверяем расширение ДО получения пути (быстрее)
                 if not file_name.lower().endswith(('.pdf', '.PDF')):
                     continue
-                
+
+                # Получаем путь к файлу
+                file_path = self._get_file_path(file_id, files)
+                if not file_path:
+                    self.logger.debug(f"⏭️ Не удалось получить путь для файла: {file_name}")
+                    continue
+
+                # Нормализуем путь файла для сравнения
+                normalized_file_path = file_path.rstrip('/').lower()
+
+                # Проверяем, находится ли файл в целевой папке
+                # Файл должен быть либо в папке, либо в подпапке
+                is_in_folder = (normalized_file_path.startswith(normalized_folder + '/') or
+                               normalized_file_path == normalized_folder)
+
+                if not is_in_folder:
+                    self.logger.debug(f"⏭️ Файл не в целевой папке: {file_path} (ищем в {folder_path})")
+                    continue
+
+                self.logger.debug(f"✅ Найден PDF в целевой папке: {file_name} ({format_file_size(file_size)})")
+
                 # Проверяем паттерны исключения
-                if any(fnmatch.fnmatch(file_name.lower(), pattern.lower()) 
+                if any(fnmatch.fnmatch(file_name.lower(), pattern.lower())
                        for pattern in skip_patterns):
                     self.logger.debug(f"⏭️ Пропускаю файл по паттерну: {file_name}")
                     continue
-                
+
                 # Проверяем размер файла
                 min_size = self.config.min_file_size_kb * 1024
                 max_size = self.config.max_file_size_mb * 1024 * 1024
-                
+
                 if file_size < min_size:
                     self.logger.debug(f"⏭️ Пропускаю маленький файл: {file_name} ({format_file_size(file_size)})")
                     continue
-                
+
                 if file_size > max_size:
                     self.logger.debug(f"⏭️ Пропускаю большой файл: {file_name} ({format_file_size(file_size)})")
                     continue
-                
+
                 pdf_files.append({
                     'id': file_id,
                     'name': file_name,
@@ -171,19 +191,19 @@ class MegaClient:
                     'parent_id': file_info.get('p'),
                     'created_time': file_info.get('ts', 0)
                 })
-            
+
             # Сортируем по времени создания (старые сначала)
             pdf_files.sort(key=lambda x: x['created_time'])
-            
+
             self.logger.info(f"📋 Найдено PDF файлов: {len(pdf_files)}")
             for file_info in pdf_files[:5]:  # Показываем первые 5
                 self.logger.info(f"   📄 {file_info['name']} ({format_file_size(file_info['size'])})")
-            
+
             if len(pdf_files) > 5:
                 self.logger.info(f"   📄 ... и еще {len(pdf_files) - 5} файлов")
-            
+
             return pdf_files
-            
+
         except Exception as e:
             self.logger.error(f"❌ Ошибка получения списка файлов: {e}")
             raise
