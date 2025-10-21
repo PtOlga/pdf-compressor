@@ -41,6 +41,25 @@ try:
 except Exception as e:
     print(f"   ❌ Ошибка: {e}")
 
+# Патч для mega.py - добавляем User-Agent
+print("\n🔧 Применяю патч для mega.py...")
+try:
+    import requests
+    original_post = requests.post
+
+    def patched_post(*args, **kwargs):
+        """Патч для добавления User-Agent к запросам"""
+        if 'headers' not in kwargs:
+            kwargs['headers'] = {}
+        if 'User-Agent' not in kwargs['headers']:
+            kwargs['headers']['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+        return original_post(*args, **kwargs)
+
+    requests.post = patched_post
+    print("   ✅ Патч применен")
+except Exception as e:
+    print(f"   ⚠️ Не удалось применить патч: {e}")
+
 # Пытаемся подключиться к Mega
 print("\n🔐 Попытка подключения к Mega:")
 try:

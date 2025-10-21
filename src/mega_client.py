@@ -19,6 +19,20 @@ except ImportError:
     print("❌ Библиотека mega.py не установлена. Установите: pip install mega.py")
     raise
 
+# Патч для mega.py - добавляем User-Agent для GitHub Actions
+import requests
+original_post = requests.post
+
+def patched_post(*args, **kwargs):
+    """Патч для добавления User-Agent к запросам"""
+    if 'headers' not in kwargs:
+        kwargs['headers'] = {}
+    if 'User-Agent' not in kwargs['headers']:
+        kwargs['headers']['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
+    return original_post(*args, **kwargs)
+
+requests.post = patched_post
+
 from config import get_config
 from utils import format_file_size, validate_file_path
 

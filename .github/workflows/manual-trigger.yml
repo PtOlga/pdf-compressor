@@ -105,11 +105,6 @@ jobs:
         echo "- Dry run: \`${{ github.event.inputs.dry_run }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-    - name: 🔍 Test Mega connection
-      run: |
-        echo "🧪 Testing Mega connection..."
-        python test_mega_github_actions.py
-
     - name: 🔧 Configure settings
       run: |
         # Создаем временный конфигурационный файл с пользовательскими настройками

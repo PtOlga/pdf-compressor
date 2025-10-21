@@ -1,293 +1,47 @@
-name: PDF Compressor Bot
+name: PDF Batch Compressor
 
 on:
+  # Запуск по будням каждые 2 часа в рабочее время (UTC): 08:00,10:00,12:00,14:00,16:00
   schedule:
-    # В рабочее время по будням каждые 2 часа
-    # 8:00, 10:00, 12:00, 14:00, 16:00 UTC = 9:00, 11:00, 13:00, 15:00, 17:00 CET (по будням: пн-пт)
     - cron: '0 8,10,12,14,16 * * 1-5'
 
+  # Позволить запускать вручную
   workflow_dispatch:
-    inputs:
-      source_folder:
-        description: 'Mega folder path to process'
-        required: false
-        default: '/Cloud Drive/pdf/Input'
-        type: string
-      target_folder:
-        description: 'Mega folder for compressed files'
-        required: false
-        default: '/Cloud Drive/pdf/Compressed'
-        type: string
-      compression_level:
-        description: 'Compression level'
-        required: false
-        default: 'medium'
-        type: choice
-        options:
-        - low
-        - medium
-        - high
-      max_files:
-        description: 'Maximum files to process in one run'
-        required: false
-        default: '50'
-        type: string
-      dry_run:
-        description: 'Test run without making changes'
-        required: false
-        default: false
-        type: boolean
-
-env:
-  MEGA_EMAIL: ${{ secrets.MEGA_EMAIL }}
-  MEGA_PASSWORD: ${{ secrets.MEGA_PASSWORD }}
-  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  compress-pdfs:
+  compress:
     runs-on: ubuntu-latest
-    timeout-minutes: 300  # 5 часов максимум
-    
+
     steps:
-    - name: 📋 Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: 🐍 Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        cache: 'pip'
-        
-    - name: 📦 Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ghostscript qpdf poppler-utils
-        
-        # Проверяем установку
-        gs --version
-        qpdf --version
-        
-    - name: 🔧 Install Python dependencies
-      run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    - name: 📁 Create temp directories
-      run: |
-        mkdir -p temp/{input,output,logs,backup}
-        
-    - name: ✅ Validate configuration
-      run: |
-        python src/config.py
-        
-    - name: 🧪 Test components
-      run: |
-        echo "Testing PDF compressor..."
-        python -c "
-        import sys
-        sys.path.insert(0, 'src')
-        from compressor import PDFCompressor
-        from utils import setup_logging
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-        setup_logging(level='INFO')
-        compressor = PDFCompressor(level='medium')
-        info = compressor.get_compression_info()
-        print('Available tools:', info['available_tools'])
-        print('Configuration OK ✅')
-        "
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-    - name: 🔍 Test Mega connection
-      run: |
-        echo "🧪 Testing Mega connection..."
-        python test_mega_github_actions.py
-        
-    - name: 🗜️ Run PDF compression
-      env:
-        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Cloud Drive/pdf/Input' }}
-        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/Cloud Drive/pdf/Compressed' }}
-        COMPRESSION_LEVEL: ${{ github.event.inputs.compression_level || 'medium' }}
-        MAX_FILES: ${{ github.event.inputs.max_files || '50' }}
-        DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
-      run: |
-        python src/main.py \
-          --source "$SOURCE_FOLDER" \
-          --target "$TARGET_FOLDER" \
-          --level "$COMPRESSION_LEVEL" \
-          --max-files "$MAX_FILES" \
-          --log-file "temp/logs/compression.log" \
-          --log-level "INFO" \
-          $( [[ "$DRY_RUN" == "true" ]] && echo "--dry-run" || echo "" )
-          
-    - name: 📊 Generate report
-      if: always()
-      run: |
-        python scripts/generate_report.py temp/logs/compression.log > temp/report.md
-        
-    - name: 📱 Send Telegram notification
-      if: always() && env.TELEGRAM_BOT_TOKEN != ''
-      run: |
-        python scripts/send_notification.py temp/report.md
-        
-    - name: 📤 Upload logs as artifacts
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: compression-logs-${{ github.run_number }}
-        path: |
-          temp/logs/
-          temp/report.md
-        retention-days: 30
-        
-    - name: 🔄 Update README stats
-      if: success()
-      run: |
-        python scripts/update_readme_stats.py
-        
-        if [[ -n "$(git status --porcelain)" ]]; then
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add README.md
-          git commit -m "📊 Update compression stats [skip ci]" || exit 0
-          git push
-        fi
-        
-    - name: 🐛 Create GitHub Issue on failure
-      if: failure()
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-          
-          // Читаем лог файл
-          let logContent = '';
-          try {
-            logContent = fs.readFileSync('temp/logs/compression.log', 'utf8');
-          } catch (error) {
-            logContent = 'Log file not found';
-          }
-          
-          // Читаем статистику
-          let statsContent = '';
-          try {
-            const statsPath = 'temp/logs/stats.json';
-            if (fs.existsSync(statsPath)) {
-              const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-              statsContent = `
-          ## 📊 Statistics
-          - **Processed Files:** ${stats.processed_files || 0}
-          - **Failed Files:** ${stats.failed_files || 0}
-          - **Total Duration:** ${stats.duration || 0} seconds
-          - **Compression Level:** ${stats.compression_level || 'unknown'}
-              `;
-            }
-          } catch (error) {
-            statsContent = 'Statistics not available';
-          }
-          
-          // Создаем Issue
-          const issueTitle = `PDF Compression Failed - ${new Date().toISOString().split('T')[0]}`;
-          const issueBody = `
-          # 🚨 PDF Compression Job Failed
-          
-          **Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
-          **Triggered by:** ${{ github.event_name }}
-          
-          **Parameters:**
-          - Source Folder: \`${{ github.event.inputs.source_folder || '/PDF/Input' }}\`
-          - Target Folder: \`${{ github.event.inputs.target_folder || '/PDF/Compressed' }}\`
-          - Compression Level: \`${{ github.event.inputs.compression_level || 'medium' }}\`
-          - Max Files: \`${{ github.event.inputs.max_files || '50' }}\`
-          
-          ${statsContent}
-          
-          ## 📋 Error Log (last 3000 characters):
-          \`\`\`
-          ${logContent.slice(-3000)}
-          \`\`\`
-          
-          ---
-          *This issue was created automatically by GitHub Actions*
-          `;
-          
-          github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title: issueTitle,
-            body: issueBody,
-            labels: ['bug', 'automated', 'pdf-compression']
-          });
-          
-    - name: 💬 Comment on success
-      if: success() && github.event_name == 'workflow_dispatch'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          
-          // Читаем статистику
-          let statsContent = 'Statistics not available';
-          try {
-            const statsPath = 'temp/logs/stats.json';
-            if (fs.existsSync(statsPath)) {
-              const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-              
-              const formatFileSize = (bytes) => {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-              };
-              
-              statsContent = `## 📊 Compression Results
-          
-          ✅ **Successfully processed:** ${stats.processed_files || 0} files
-          ${stats.failed_files > 0 ? `❌ **Failed:** ${stats.failed_files} files` : ''}
-          ⏱️ **Duration:** ${Math.round(stats.duration || 0)} seconds
-          🗜️ **Compression level:** ${stats.compression_level}
-          
-          📊 **Space savings:**
-          - Before: ${formatFileSize(stats.total_size_before || 0)}
-          - After: ${formatFileSize(stats.total_size_after || 0)}
-          - Saved: ${formatFileSize(stats.total_bytes_saved || 0)} (${(stats.total_percent_saved || 0).toFixed(1)}%)
-              `;
-            }
-          } catch (error) {
-            console.error('Error reading stats:', error);
-          }
-          
-          // Создаем комментарий только если workflow был запущен вручную
-          const commentBody = `
-          # ✅ PDF Compression Completed Successfully
-          
-          **Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
-          ${statsContent}
-          
-          ---
-          *Compression completed at ${new Date().toISOString()}*
-          `;
-          
-          // Если есть открытые issue, комментируем последний
-          const issues = await github.rest.issues.listForRepo({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            labels: 'pdf-compression',
-            state: 'open',
-            sort: 'created',
-            direction: 'desc',
-            per_page: 1
-          });
-          
-          if (issues.data.length > 0) {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issues.data[0].number,
-              body: commentBody
-            });
-          }
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ghostscript qpdf
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run PDF Compressor
+        env:
+          MEGA_EMAIL: ${{ secrets.MEGA_EMAIL }}
+          MEGA_PASSWORD: ${{ secrets.MEGA_PASSWORD }}
+        run: |
+          python src/main.py --log-level INFO
+
+      - name: Upload logs to artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: compression-logs
+          path: temp/logs/
+          retention-days: 30
