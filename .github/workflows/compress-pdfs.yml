@@ -11,12 +11,12 @@ on:
       source_folder:
         description: 'Mega folder path to process'
         required: false
-        default: '/PDF/Input'
+        default: '/Cloud Drive/pdf/Input'
         type: string
       target_folder:
         description: 'Mega folder for compressed files'
         required: false
-        default: '/PDF/Compressed'
+        default: '/Cloud Drive/pdf/Compressed'
         type: string
       compression_level:
         description: 'Compression level'
