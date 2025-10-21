@@ -7,6 +7,7 @@ import logging
 import time
 import tempfile
 import shutil
+import os
 from pathlib import Path
 from typing import List, Dict, Any
 import fnmatch
@@ -267,6 +268,7 @@ class MegaClient:
 
             # Скачиваем файл с повторными попытками
             for attempt in range(self.max_retries):
+                temp_dir = None
                 try:
                     # Скачиваем в временную папку
                     temp_dir = tempfile.mkdtemp()
@@ -276,17 +278,22 @@ class MegaClient:
                         dest_filename=file_name
                     )
 
-                    # Даем время на завершение операции
-                    time.sleep(2)
+                    # Даем время на завершение операции и освобождение файла
+                    time.sleep(3)
 
                     # Ищем скачанный файл во временной папке
                     temp_file = Path(temp_dir) / file_name
                     if temp_file.exists():
-                        # Копируем в целевую папку
-                        shutil.copy2(str(temp_file), str(local_file))
+                        # Удаляем целевой файл если он существует
+                        if local_file.exists():
+                            local_file.unlink()
+
+                        # Перемещаем файл в целевую папку
+                        os.rename(str(temp_file), str(local_file))
 
                         # Очищаем временную папку
-                        shutil.rmtree(temp_dir, ignore_errors=True)
+                        if temp_dir and Path(temp_dir).exists():
+                            shutil.rmtree(temp_dir, ignore_errors=True)
 
                         if local_file.exists():
                             file_size = local_file.stat().st_size
@@ -294,10 +301,15 @@ class MegaClient:
                             return True
 
                     # Очищаем временную папку при ошибке
-                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    if temp_dir and Path(temp_dir).exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
                     raise FileNotFoundError(f"Файл не найден после скачивания: {local_path}")
 
                 except Exception as e:
+                    # Очищаем временную папку при ошибке
+                    if temp_dir and Path(temp_dir).exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+
                     if attempt < self.max_retries - 1:
                         self.logger.warning(f"⚠️ Попытка {attempt + 1} неудачна: {e}")
                         time.sleep(self.retry_delay)
