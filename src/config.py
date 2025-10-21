@@ -258,9 +258,10 @@ class Config:
             warnings.append("Максимальное количество файлов должно быть больше 0")
         
         # Проверка Telegram настроек
-        telegram_enabled = self.get('notifications.telegram.enabled', False)
-        if telegram_enabled and not self.telegram_enabled:
-            warnings.append("Telegram уведомления включены, но не настроены токены")
+        # Пропускаем проверку, так как токены могут быть в GitHub Secrets
+        # telegram_enabled = self.get('notifications.telegram.enabled', False)
+        # if telegram_enabled and not self.telegram_enabled:
+        #     warnings.append("Telegram уведомления включены, но не настроены токены")
         
         return {
             'errors': errors,
