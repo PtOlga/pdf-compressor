@@ -52,27 +52,32 @@ class MegaClient:
         
         try:
             self.logger.info("🔐 Подключение к Mega...")
+            self.logger.debug(f"Email: {email}")
             self.mega = Mega()
-            
+
             # Аутентификация с повторными попытками
             for attempt in range(self.max_retries):
                 try:
+                    self.logger.debug(f"Попытка подключения {attempt + 1}/{self.max_retries}...")
                     self.mega = self.mega.login(email, password)
                     self._authenticated = True
                     self.logger.info("✅ Успешно подключен к Mega")
                     break
-                    
+
                 except Exception as e:
+                    self.logger.error(f"❌ Ошибка при попытке {attempt + 1}: {type(e).__name__}: {e}")
                     if attempt == self.max_retries - 1:
                         raise
-                    self.logger.warning(f"⚠️ Попытка {attempt + 1} неудачна: {e}")
+                    self.logger.warning(f"⚠️ Попытка {attempt + 1} неудачна, жду {self.retry_delay}сек...")
                     time.sleep(self.retry_delay)
-            
+
             # Проверяем квоту
             self._check_quota()
-            
+
         except Exception as e:
-            self.logger.error(f"❌ Ошибка подключения к Mega: {e}")
+            self.logger.error(f"❌ Ошибка подключения к Mega: {type(e).__name__}: {e}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
             raise
     
     def _check_quota(self):
