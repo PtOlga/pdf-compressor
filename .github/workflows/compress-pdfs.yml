@@ -90,13 +90,18 @@ jobs:
         sys.path.insert(0, 'src')
         from compressor import PDFCompressor
         from utils import setup_logging
-        
+
         setup_logging(level='INFO')
         compressor = PDFCompressor(level='medium')
         info = compressor.get_compression_info()
         print('Available tools:', info['available_tools'])
         print('Configuration OK ✅')
         "
+
+    - name: 🔍 Test Mega connection
+      run: |
+        echo "🧪 Testing Mega connection..."
+        python test_mega_github_actions.py
         
     - name: 🗜️ Run PDF compression
       env:
