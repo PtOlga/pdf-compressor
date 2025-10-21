@@ -63,17 +63,31 @@ class MegaClient:
             for attempt in range(self.max_retries):
                 try:
                     self.logger.debug(f"Попытка подключения {attempt + 1}/{self.max_retries}...")
+
+                    # Пересоздаем объект Mega перед каждой попыткой
+                    if attempt > 0:
+                        self.mega = Mega()
+
                     self.mega = self.mega.login(email, password)
                     self._authenticated = True
                     self.logger.info("✅ Успешно подключен к Mega")
                     break
 
                 except Exception as e:
-                    self.logger.error(f"❌ Ошибка при попытке {attempt + 1}: {type(e).__name__}: {e}")
+                    error_str = str(e)
+                    self.logger.error(f"❌ Ошибка при попытке {attempt + 1}: {type(e).__name__}: {error_str}")
+
+                    # Проверяем, не пустой ли ответ от API
+                    if "Expecting value" in error_str or "JSONDecodeError" in type(e).__name__:
+                        self.logger.error("⚠️ Mega API вернул пустой ответ. Это может быть проблема с сетью или блокировкой IP.")
+
                     if attempt == self.max_retries - 1:
                         raise
-                    self.logger.warning(f"⚠️ Попытка {attempt + 1} неудачна, жду {self.retry_delay}сек...")
-                    time.sleep(self.retry_delay)
+
+                    # Увеличиваем задержку с каждой попыткой
+                    wait_time = self.retry_delay * (attempt + 1)
+                    self.logger.warning(f"⚠️ Попытка {attempt + 1} неудачна, жду {wait_time}сек...")
+                    time.sleep(wait_time)
 
             # Проверяем квоту
             self._check_quota()
