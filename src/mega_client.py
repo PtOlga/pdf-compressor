@@ -6,6 +6,7 @@
 import logging
 import time
 import tempfile
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 import fnmatch
@@ -240,39 +241,72 @@ class MegaClient:
     def download_file(self, file_path: str, local_path: str) -> bool:
         """
         Скачивание файла из Mega
-        
+
         Args:
             file_path: путь к файлу в Mega
             local_path: локальный путь для сохранения
-            
+
         Returns:
             True если успешно, False иначе
         """
         self._ensure_connected()
-        
+
         try:
             # Создаем директорию для файла
             local_file = Path(local_path)
             local_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             self.logger.debug(f"📥 Скачивание {file_path} -> {local_path}")
-            
-            # Скачиваем с повторными попытками
-            self._retry_on_failure(
-                self.mega.download_url, 
-                file_path, 
-                dest_path=str(local_file.parent),
-                dest_filename=local_file.name
-            )
-            
-            if local_file.exists():
-                file_size = local_file.stat().st_size
-                self.logger.debug(f"✅ Скачано: {format_file_size(file_size)}")
-                return True
-            else:
-                self.logger.error(f"❌ Файл не найден после скачивания: {local_path}")
+
+            # Находим файл по имени (последняя часть пути)
+            file_name = Path(file_path).name
+            file_node = self.mega.find(file_name)
+            if not file_node:
+                self.logger.error(f"❌ Файл не найден в Mega: {file_path}")
                 return False
-                
+
+            # Скачиваем файл с повторными попытками
+            for attempt in range(self.max_retries):
+                try:
+                    # Скачиваем в временную папку
+                    temp_dir = tempfile.mkdtemp()
+                    self.mega.download(
+                        file_node,
+                        dest_path=temp_dir,
+                        dest_filename=file_name
+                    )
+
+                    # Даем время на завершение операции
+                    time.sleep(2)
+
+                    # Ищем скачанный файл во временной папке
+                    temp_file = Path(temp_dir) / file_name
+                    if temp_file.exists():
+                        # Копируем в целевую папку
+                        shutil.copy2(str(temp_file), str(local_file))
+
+                        # Очищаем временную папку
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+
+                        if local_file.exists():
+                            file_size = local_file.stat().st_size
+                            self.logger.debug(f"✅ Скачано: {format_file_size(file_size)}")
+                            return True
+
+                    # Очищаем временную папку при ошибке
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                    raise FileNotFoundError(f"Файл не найден после скачивания: {local_path}")
+
+                except Exception as e:
+                    if attempt < self.max_retries - 1:
+                        self.logger.warning(f"⚠️ Попытка {attempt + 1} неудачна: {e}")
+                        time.sleep(self.retry_delay)
+                    else:
+                        raise
+
+            self.logger.error(f"❌ Файл не найден после скачивания: {local_path}")
+            return False
+
         except Exception as e:
             self.logger.error(f"❌ Ошибка скачивания {file_path}: {e}")
             return False

@@ -68,21 +68,22 @@ class ColoredFormatter(logging.Formatter):
     def format(self, record):
         # Сохраняем оригинальное сообщение
         original_msg = record.getMessage()
-        
+
         # Добавляем эмодзи для разных типов сообщений
         emojis = {
             'DEBUG': '🔍',
-            'INFO': '📄' if 'Processing' in original_msg else 
+            'INFO': '📄' if 'Processing' in original_msg else
                    '✅' if any(word in original_msg for word in ['Completed', 'Success', 'Done']) else
                    '📊' if 'Stats' in original_msg else '📋',
             'WARNING': '⚠️',
             'ERROR': '❌',
             'CRITICAL': '💥'
         }
-        
+
         emoji = emojis.get(record.levelname, '📋')
         record.msg = f"{emoji} {original_msg}"
-        
+        record.args = ()  # Очищаем args чтобы избежать проблем с форматированием
+
         # Форматируем с цветом
         color = self.COLORS.get(record.levelname, '')
         formatted = super().format(record)
@@ -195,13 +196,20 @@ def save_statistics(stats: Dict[str, Any], output_path: str = "temp/logs/stats.j
     """
     stats_file = Path(output_path)
     stats_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
+    # Конвертируем datetime объекты в ISO формат
+    stats_copy = stats.copy()
+    if isinstance(stats_copy.get('start_time'), datetime):
+        stats_copy['start_time'] = stats_copy['start_time'].isoformat()
+    if isinstance(stats_copy.get('end_time'), datetime):
+        stats_copy['end_time'] = stats_copy['end_time'].isoformat()
+
     # Добавляем timestamp
-    stats['timestamp'] = datetime.now().isoformat()
-    stats['date'] = datetime.now().strftime('%Y-%m-%d')
-    
+    stats_copy['timestamp'] = datetime.now().isoformat()
+    stats_copy['date'] = datetime.now().strftime('%Y-%m-%d')
+
     with open(stats_file, 'w', encoding='utf-8') as f:
-        json.dump(stats, f, ensure_ascii=False, indent=2)
+        json.dump(stats_copy, f, ensure_ascii=False, indent=2)
 
 
 def load_statistics(stats_path: str = "temp/logs/stats.json") -> Dict[str, Any]:
