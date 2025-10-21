@@ -10,6 +10,7 @@ pdf2image>=1.17.0
 
 # Mega cloud storage
 mega.py>=1.0.8
+tenacity>=9.0.0  # Updated for Python 3.13 compatibility
 
 # HTTP requests
 requests>=2.31.0
