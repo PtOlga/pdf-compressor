@@ -1,9 +1,9 @@
 # Настройки папок в Mega
 folders:
-  input: "/pdf/Input"
-  output: "/pdf/Compressed" 
-  backup: "/pdf/Backup"
-  processed: "/pdf/Processed"  # Для уже обработанных файлов
+  input: "/Cloud Drive/pdf/Input"
+  output: "/Cloud Drive/pdf/Compressed"
+  backup: "/Cloud Drive/pdf/Backup"
+  processed: "/Cloud Drive/pdf/Processed"  # Для уже обработанных файлов
 
 # Настройки сжатия
 compression:

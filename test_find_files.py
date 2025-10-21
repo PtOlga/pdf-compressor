@@ -45,6 +45,7 @@ try:
     print("\n🔎 Поиск PDF файлов в разных путях:")
     
     paths_to_try = [
+        "/Cloud Drive/pdf/Input",
         "/pdf/Input",
         "/PDF/Input",
         "/Input",
@@ -63,9 +64,9 @@ try:
             print(f"      ❌ Ошибка: {e}")
     
     # Проверяем метод get_folder_info
-    print("\n📊 Информация о папке /pdf/Input:")
+    print("\n📊 Информация о папке /Cloud Drive/pdf/Input:")
     try:
-        folder_info = mega_client.get_folder_info("/pdf/Input")
+        folder_info = mega_client.get_folder_info("/Cloud Drive/pdf/Input")
         print(f"   Всего файлов: {folder_info['total_files']}")
         print(f"   Всего размер: {folder_info['total_size']} bytes")
         print(f"   Файлы:")
