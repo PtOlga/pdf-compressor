@@ -1,67 +1,67 @@
 # 🗜️ PDF Batch Compressor for Mega
 
-Автоматический пакетный компрессор PDF файлов с интеграцией Mega облачного хранилища и GitHub Actions.
+Automatic batch PDF compressor with Mega cloud storage integration and GitHub Actions.
 
 [![Compress PDFs](https://github.com/username/pdf-compressor/actions/workflows/compress-pdfs.yml/badge.svg)](https://github.com/username/pdf-compressor/actions/workflows/compress-pdfs.yml)
 [![Manual Compression](https://github.com/username/pdf-compressor/actions/workflows/manual-trigger.yml/badge.svg)](https://github.com/username/pdf-compressor/actions/workflows/manual-trigger.yml)
 
-## ✨ Возможности
+## ✨ Features
 
-- 🚀 **Автоматическое сжатие** PDF файлов по расписанию
-- 🗂️ **Интеграция с Mega** - прямая работа с облачным хранилищем
-- 🤖 **GitHub Actions** - полностью бесплатная автоматизация
-- 🎯 **Умное сжатие** - выбор оптимального алгоритма для каждого файла
-- 📊 **Детальная статистика** - отчеты об экономии места и времени
-- 📱 **Telegram уведомления** - получайте результаты на телефон
-- 🛡️ **Безопасность** - резервное копирование и проверка целостности
-- ⚙️ **Гибкая настройка** - варианты параметров сжатия
+- 🚀 **Automatic compression** of PDF files on schedule
+- 🗂️ **Mega integration** - direct work with cloud storage
+- 🤖 **GitHub Actions** - completely free automation
+- 🎯 **Smart compression** - optimal algorithm selection for each file
+- 📊 **Detailed statistics** - reports on space and time savings
+- 📱 **Telegram notifications** - receive results on your phone
+- 🛡️ **Security** - backup and integrity verification
+- ⚙️ **Flexible configuration** - various compression parameters
 
-## 📋 Алгоритмы сжатия
+## 📋 Compression Algorithms
 
-Проект использует несколько методов сжатия для оптимальных результатов:
+The project uses several compression methods for optimal results:
 
-| Инструмент | Лучше для | Типичная экономия |
-|------------|-----------|-------------------|
-| **Ghostscript** | Файлы с изображениями, сканы | 60-90% |
-| **QPDF** | Универсальное сжатие | 70-85% |
-| **Pikepdf** | Файлы с формами, безопасное сжатие | 70-85% |
-| **PyPDF** | Простые PDF файлы | 80-95% |
+| Tool | Best for | Typical savings |
+|------|----------|-----------------|
+| **Ghostscript** | Files with images, scans | 60-90% |
+| **QPDF** | Universal compression | 70-85% |
+| **Pikepdf** | Files with forms, safe compression | 70-85% |
+| **PyPDF** | Simple PDF files | 80-95% |
 
-### Уровни сжатия
+### Compression Levels
 
-- **🟢 Low**: Минимальные потери качества (принтер-качество)
-- **🟡 Medium**: Баланс размера и качества (электронные книги)
-- **🔴 High**: Максимальное сжатие (веб-использование)
+- **🟢 Low**: Minimal quality loss (printer quality)
+- **🟡 Medium**: Balance of size and quality (e-books)
+- **🔴 High**: Maximum compression (web usage)
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### 1. Настройка репозитория
+### 1. Repository Setup
 
-1. **Fork этого репозитория** или создайте новый
-2. **Добавьте GitHub Secrets** в настройках репозитория:
+1. **Fork this repository** or create a new one
+2. **Add GitHub Secrets** in repository settings:
 
 ```bash
 MEGA_EMAIL=your-mega-email@example.com
 MEGA_PASSWORD=your-mega-password
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token  # (опционально)
-TELEGRAM_CHAT_ID=your-telegram-chat-id      # (опционально)
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token  # (optional)
+TELEGRAM_CHAT_ID=your-telegram-chat-id      # (optional)
 ```
 
-### 2. Настройка папок в Mega
+### 2. Setup Folders in Mega
 
-Создайте следующие папки в вашем Mega аккаунте:
+Create the following folders in your Mega account:
 
 ```
 /PDF/
-├── Input/          # Исходные файлы для сжатия
-├── Compressed/     # Сжатые файлы
-├── Backup/         # Резервные копии (опционально)
-└── Processed/      # Архив обработанных файлов
+├── Input/          # Source files for compression
+├── Compressed/     # Compressed files
+├── Backup/         # Backup copies (optional)
+└── Processed/      # Archive of processed files
 ```
 
-### 3. Настройка конфигурации
+### 3. Configuration Setup
 
-Отредактируйте `config/settings.yaml` под свои нужды:
+Edit `config/settings.yaml` to your needs:
 
 ```yaml
 folders:
@@ -77,46 +77,46 @@ limits:
   max_file_size_mb: 200
 ```
 
-### 4. Запуск
+### 4. Running
 
-После настройки система работает автоматически:
+After setup, the system works automatically:
 
-- **Автоматически**: каждый день в 2:00 и 14:00 UTC
-- **Вручную**: через вкладку "Actions" → "Manual PDF Compression" → "Run workflow"
+- **Automatically**: every day at 2:00 and 14:00 UTC
+- **Manually**: through "Actions" tab → "Manual PDF Compression" → "Run workflow"
 
-## 📖 Использование
+## 📖 Usage
 
-### Автоматическое сжатие
+### Automatic Compression
 
-Просто поместите PDF файлы в папку `/PDF/Input` в вашем Mega аккаунте. Система автоматически:
+Simply place PDF files in the `/PDF/Input` folder in your Mega account. The system will automatically:
 
-1. Найдет новые PDF файлы
-2. Скачает их для обработки
-3. Применит оптимальный алгоритм сжатия
-4. Загрузит сжатые файлы в папку `/PDF/Compressed`
-5. Удалит оригинальные файлы (с резервным копированием)
-6. Отправит отчет в Telegram
+1. Find new PDF files
+2. Download them for processing
+3. Apply optimal compression algorithm
+4. Upload compressed files to `/PDF/Compressed` folder
+5. Delete original files (with backup)
+6. Send report to Telegram
 
-### Ручной запуск
+### Manual Run
 
-Для ручного запуска перейдите в Actions → Manual PDF Compression и укажите параметры:
+For manual run, go to Actions → Manual PDF Compression and specify parameters:
 
-- **Source folder**: исходная папка (например, `/PDF/Input`)
-- **Target folder**: папка для сжатых файлов 
-- **Compression level**: уровень сжатия (low/medium/high)
-- **Max files**: максимальное количество файлов за раз
-- **Dry run**: тестовый режим без изменений
+- **Source folder**: source folder (e.g., `/PDF/Input`)
+- **Target folder**: folder for compressed files
+- **Compression level**: compression level (low/medium/high)
+- **Max files**: maximum number of files at once
+- **Dry run**: test mode without changes
 
-### Мониторинг
+### Monitoring
 
-- **GitHub Actions**: просматривайте логи выполнения
-- **Artifacts**: скачивайте детальные отчеты
-- **Telegram**: получайте краткие уведомления
-- **Issues**: автоматическое создание при ошибках
+- **GitHub Actions**: view execution logs
+- **Artifacts**: download detailed reports
+- **Telegram**: receive brief notifications
+- **Issues**: automatic creation on errors
 
-## 📊 Статистика
+## 📊 Statistics
 
-Система ведет подробную статистику:
+The system maintains detailed statistics:
 
 ```json
 {
@@ -131,20 +131,20 @@ limits:
 }
 ```
 
-## ⚙️ Конфигурация
+## ⚙️ Configuration
 
-### Основные настройки
+### Main Settings
 
 **config/settings.yaml**:
 
 ```yaml
-# Папки в Mega
+# Folders in Mega
 folders:
   input: "/PDF/Input"
   output: "/PDF/Compressed"
   backup: "/PDF/Backup"
 
-# Уровни сжатия
+# Compression levels
 compression:
   default_level: "medium"
   levels:
@@ -161,14 +161,14 @@ compression:
       image_quality: 60
       image_resolution: 96
 
-# Лимиты
+# Limits
 limits:
   max_files_per_run: 50
   max_file_size_mb: 200
   min_file_size_kb: 100
   timeout_minutes: 60
 
-# Фильтры файлов
+# File filters
 filters:
   skip_patterns:
     - "*compressed*"
@@ -176,13 +176,13 @@ filters:
     - "*optimized*"
   min_compression_percent: 5
 
-# Безопасность
+# Security
 safety:
   create_backup: true
   verify_compression: true
   rollback_on_error: true
 
-# Уведомления
+# Notifications
 notifications:
   telegram:
     enabled: true
@@ -192,195 +192,195 @@ notifications:
 
 ### GitHub Secrets
 
-| Секрет | Обязательный | Описание |
-|--------|--------------|----------|
-| `MEGA_EMAIL` | ✅ | Email вашего Mega аккаунта |
-| `MEGA_PASSWORD` | ✅ | Пароль Mega аккаунта |
-| `TELEGRAM_BOT_TOKEN` | ❌ | Токен Telegram бота для уведомлений |
-| `TELEGRAM_CHAT_ID` | ❌ | ID чата для уведомлений |
+| Secret | Required | Description |
+|--------|----------|-------------|
+| `MEGA_EMAIL` | ✅ | Your Mega account email |
+| `MEGA_PASSWORD` | ✅ | Mega account password |
+| `TELEGRAM_BOT_TOKEN` | ❌ | Telegram bot token for notifications |
+| `TELEGRAM_CHAT_ID` | ❌ | Chat ID for notifications |
 
-### Настройка Telegram уведомлений
+### Setting Up Telegram Notifications
 
-1. Создайте бота через [@BotFather](https://t.me/botfather)
-2. Получите токен бота
-3. Узнайте свой Chat ID через [@userinfobot](https://t.me/userinfobot)
-4. Добавьте токены в GitHub Secrets
+1. Create a bot via [@BotFather](https://t.me/botfather)
+2. Get bot token
+3. Find your Chat ID via [@userinfobot](https://t.me/userinfobot)
+4. Add tokens to GitHub Secrets
 
-## 🛠️ Локальная разработка
+## 🛠️ Local Development
 
-### Установка
+### Installation
 
 ```bash
 git clone https://github.com/username/pdf-compressor.git
 cd pdf-compressor
 
-# Установка зависимостей
+# Install dependencies
 pip install -r requirements.txt
 
-# Системные зависимости (Ubuntu/Debian)
+# System dependencies (Ubuntu/Debian)
 sudo apt-get install ghostscript qpdf poppler-utils
 
-# Создание .env файла
+# Create .env file
 cp .env.example .env
-# Отредактируйте .env с вашими данными
+# Edit .env with your credentials
 ```
 
-### Запуск
+### Running
 
 ```bash
-# Тестовый запуск
+# Test run
 python src/main.py --dry-run
 
-# Обычный запуск
+# Normal run
 python src/main.py \
   --source "/PDF/Input" \
   --target "/PDF/Compressed" \
   --level medium \
   --max-files 10
 
-# С настройками логирования
+# With logging settings
 python src/main.py \
   --log-file logs/compression.log \
   --log-level DEBUG
 ```
 
-### Тестирование
+### Testing
 
 ```bash
-# Тестирование компрессора
+# Test compressor
 python src/compressor.py
 
-# Тестирование Mega клиента
+# Test Mega client
 python src/mega_client.py
 
-# Тестирование конфигурации
+# Test configuration
 python src/config.py
 ```
 
-## 📁 Структура проекта
+## 📁 Project Structure
 
 ```
 pdf-compressor/
 ├── .github/workflows/       # GitHub Actions
-│   ├── compress-pdfs.yml   # Основной workflow
-│   └── manual-trigger.yml  # Ручной запуск
-├── src/                     # Исходный код
-│   ├── main.py             # Основной скрипт
-│   ├── compressor.py       # Логика сжатия PDF
-│   ├── mega_client.py      # Клиент Mega
-│   ├── config.py           # Управление конфигурацией
-│   └── utils.py            # Утилиты
-├── scripts/                 # Вспомогательные скрипты
-│   ├── generate_report.py  # Генерация отчетов
-│   └── send_notification.py # Telegram уведомления
-├── config/                  # Конфигурация
-│   └── settings.yaml       # Основные настройки
-├── requirements.txt         # Python зависимости
-└── README.md               # Документация
+│   ├── compress-pdfs.yml   # Main workflow
+│   └── manual-trigger.yml  # Manual trigger
+├── src/                     # Source code
+│   ├── main.py             # Main script
+│   ├── compressor.py       # PDF compression logic
+│   ├── mega_client.py      # Mega client
+│   ├── config.py           # Configuration management
+│   └── utils.py            # Utilities
+├── scripts/                 # Helper scripts
+│   ├── generate_report.py  # Report generation
+│   └── send_notification.py # Telegram notifications
+├── config/                  # Configuration
+│   └── settings.yaml       # Main settings
+├── requirements.txt         # Python dependencies
+└── README.md               # Documentation
 ```
 
-## 🔧 Расширенные возможности
+## 🔧 Advanced Features
 
-### Фильтрация файлов
+### File Filtering
 
-Настройте какие файлы обрабатывать:
+Configure which files to process:
 
 ```yaml
 filters:
-  # Пропускать файлы по паттернам
+  # Skip files by patterns
   skip_patterns:
     - "*compressed*"
     - "*_small.pdf"
     - "temp_*"
   
-  # Размеры файлов
+  # File sizes
   min_file_size_kb: 100
   max_file_size_mb: 200
   
-  # Минимальный процент сжатия для сохранения
+  # Minimum compression percentage to keep
   min_compression_percent: 5
 ```
 
-### Множественные папки
+### Multiple Folders
 
-Обрабатывайте несколько папок:
+Process multiple folders:
 
 ```bash
-# Через параметры workflow
+# Via workflow parameters
 python src/main.py --source "/PDF/Documents" --target "/PDF/Documents/Compressed"
 python src/main.py --source "/PDF/Scans" --target "/PDF/Scans/Compressed"
 ```
 
-### Настройка расписания
+### Schedule Customization
 
-Измените расписание в `.github/workflows/compress-pdfs.yml`:
+Change schedule in `.github/workflows/compress-pdfs.yml`:
 
 ```yaml
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Каждые 6 часов
-    - cron: '0 2 * * 1'    # Каждый понедельник в 2:00
+    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '0 2 * * 1'    # Every Monday at 2:00
 ```
 
-## 🐛 Диагностика проблем
+## 🐛 Troubleshooting
 
-### Типичные ошибки
+### Common Errors
 
-**1. Ошибка подключения к Mega**
+**1. Mega Connection Error**
 ```
-❌ Ошибка подключения к Mega: Login failed
+❌ Mega connection error: Login failed
 ```
-**Решение**: Проверьте правильность `MEGA_EMAIL` и `MEGA_PASSWORD`
+**Solution**: Check correctness of `MEGA_EMAIL` and `MEGA_PASSWORD`
 
-**2. Превышение лимитов GitHub Actions**
+**2. GitHub Actions Limits Exceeded**
 ```
 ❌ Job was cancelled due to timeout
 ```
-**Решение**: Уменьшите `max_files_per_run` или увеличьте `timeout-minutes`
+**Solution**: Reduce `max_files_per_run` or increase `timeout-minutes`
 
-**3. Ошибка сжатия**
+**3. Compression Error**
 ```
-❌ Все методы сжатия не удались
+❌ All compression methods failed
 ```
-**Решение**: Файл может быть поврежден или зашифрован
+**Solution**: File may be corrupted or encrypted
 
-### Отладка
+### Debugging
 
-Включите подробное логирование:
+Enable verbose logging:
 
 ```yaml
-# В workflow
+# In workflow
 --log-level DEBUG
 ```
 
-Проверьте артефакты workflow для детальных логов.
+Check workflow artifacts for detailed logs.
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-Приветствуются улучшения! Пожалуйста:
+Improvements are welcome! Please:
 
-1. Fork репозитория
-2. Создайте ветку для изменений
-3. Добавьте тесты если нужно
-4. Создайте Pull Request
+1. Fork the repository
+2. Create a branch for changes
+3. Add tests if needed
+4. Create a Pull Request
 
-## 📄 Лицензия
+## 📄 License
 
-MIT License. См. [LICENSE](LICENSE) для подробностей.
+MIT License. See [LICENSE](LICENSE) for details.
 
-## 🙏 Благодарности
+## 🙏 Acknowledgments
 
-- [mega.py](https://github.com/richardpenman/mega.py) - Python клиент для Mega
-- [pikepdf](https://github.com/pikepdf/pikepdf) - Работа с PDF на Python
-- [Ghostscript](https://www.ghostscript.com/) - Профессиональное сжатие PDF
-- [QPDF](https://github.com/qpdf/qpdf) - Инструменты для PDF
+- [mega.py](https://github.com/richardpenman/mega.py) - Python client for Mega
+- [pikepdf](https://github.com/pikepdf/pikepdf) - PDF manipulation in Python
+- [Ghostscript](https://www.ghostscript.com/) - Professional PDF compression
+- [QPDF](https://github.com/qpdf/qpdf) - PDF tools
 
 ---
 
 <div align="center">
   
-**🗜️ Экономьте место в облаке автоматически!**
+**🗜️ Save cloud space automatically!**
 
-[🐛 Сообщить об ошибке](https://github.com/username/pdf-compressor/issues) • [💡 Предложить улучшение](https://github.com/username/pdf-compressor/issues) • [📚 Wiki](https://github.com/username/pdf-compressor/wiki)
+[🐛 Report Bug](https://github.com/username/pdf-compressor/issues) • [💡 Request Feature](https://github.com/username/pdf-compressor/issues) • [📚 Wiki](https://github.com/username/pdf-compressor/wiki)
 
 </div>
