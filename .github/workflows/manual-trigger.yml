@@ -105,26 +105,31 @@ jobs:
         echo "- Dry run: \`${{ github.event.inputs.dry_run }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
+    - name: 🔍 Test Mega connection
+      run: |
+        echo "🧪 Testing Mega connection..."
+        python test_mega_github_actions.py
+
     - name: 🔧 Configure settings
       run: |
         # Создаем временный конфигурационный файл с пользовательскими настройками
         python3 << 'EOF'
         import yaml
         import os
-        
+
         # Загружаем базовую конфигурацию
         with open('config/settings.yaml', 'r') as f:
             config = yaml.safe_load(f)
-        
+
         # Применяем пользовательские настройки
         config['safety']['create_backup'] = '${{ github.event.inputs.create_backup }}' == 'true'
         config['safety']['verify_compression'] = '${{ github.event.inputs.verify_files }}' == 'true'
         config['limits']['max_files_per_run'] = int('${{ github.event.inputs.max_files }}')
-        
+
         # Сохраняем временную конфигурацию
         with open('temp/manual_settings.yaml', 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
-        
+
         print("✅ Configuration updated")
         EOF
         
