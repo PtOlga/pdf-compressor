@@ -388,8 +388,8 @@ MIT License. See [LICENSE](LICENSE) for details.
 ## 📊 Recent Statistics
 
 - **Last run:** 2025-10-22
-- **Files processed:** 0
-- **Space saved:** 0 B (0.0%)
+- **Files processed:** 2
+- **Space saved:** 113.4 KB (18.3%)
 - **Compression level:** high
 
 *Statistics updated automatically after each compression job.*
