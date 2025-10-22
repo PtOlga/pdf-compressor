@@ -52,16 +52,16 @@ jobs:
     timeout-minutes: 300  # 5 часов максимум
     
     steps:
-    - name: 📋 Checkout repository
+    - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: 🐍 Set up Python 3.10
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
         cache: 'pip'
         
-    - name: 📦 Install system dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y ghostscript qpdf poppler-utils
@@ -76,20 +76,20 @@ jobs:
         qpdf --version
         rclone version
         
-    - name: 🔧 Install Python dependencies
+    - name: Install Python dependencies
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: 📁 Create temp directories
+    - name: Create temp directories
       run: |
         mkdir -p temp/{input,output,logs,backup}
         
-    - name: ✅ Validate configuration
+    - name: Validate configuration
       run: |
         python src/config.py
         
-    - name: 🧪 Test components
+    - name: Test components
       run: |
         echo "Testing PDF compressor..."
         python -c "
@@ -116,13 +116,13 @@ jobs:
         print('RcloneClient module loaded successfully ✅')
         "
         
-    - name: 🔍 Diagnostic: Test Mega credentials
+    - name: "Diagnostic: Test Mega credentials"
       run: |
         echo "Running Mega credentials diagnostic..."
         python scripts/test_mega_credentials.py || true
         echo "Diagnostic complete (non-blocking)"
         
-    - name: 🗜️ Run PDF compression
+    - name: Run PDF compression
       env:
         SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Cloud Drive/pdf/Input' }}
         TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/Cloud Drive/pdf/Compressed' }}
@@ -139,17 +139,17 @@ jobs:
           --log-level "INFO" \
           $( [[ "$DRY_RUN" == "true" ]] && echo "--dry-run" || echo "" )
           
-    - name: 📊 Generate report
+    - name: Generate report
       if: always()
       run: |
         python scripts/generate_report.py temp/logs/compression.log > temp/report.md
         
-    - name: 📱 Send Telegram notification
+    - name: Send Telegram notification
       if: always() && env.TELEGRAM_BOT_TOKEN != ''
       run: |
         python scripts/send_notification.py temp/report.md
         
-    - name: 📤 Upload logs as artifacts
+    - name: Upload logs as artifacts
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -159,7 +159,7 @@ jobs:
           temp/report.md
         retention-days: 30
         
-    - name: 📄 Update README stats
+    - name: Update README stats
       if: success()
       run: |
         python scripts/update_readme_stats.py
@@ -172,7 +172,7 @@ jobs:
           git push
         fi
         
-    - name: 🐛 Create GitHub Issue on failure
+    - name: Create GitHub Issue on failure
       if: failure()
       uses: actions/github-script@v6
       with:
@@ -240,7 +240,7 @@ jobs:
             labels: ['bug', 'automated', 'pdf-compression']
           });
           
-    - name: 💬 Comment on success
+    - name: Comment on success
       if: success() && github.event_name == 'workflow_dispatch'
       uses: actions/github-script@v6
       with:
