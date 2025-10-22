@@ -1,0 +1,105 @@
+name: Test Mega Paths
+
+on:
+  workflow_dispatch:
+
+env:
+  MEGA_EMAIL: ${{ secrets.MEGA_EMAIL }}
+  MEGA_PASSWORD: ${{ secrets.MEGA_PASSWORD }}
+
+jobs:
+  test-paths:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Install rclone
+      run: |
+        echo "Installing rclone..."
+        curl https://rclone.org/install.sh | sudo bash
+        rclone version
+        
+    - name: Configure rclone for Mega
+      run: |
+        echo "Configuring rclone..."
+        mkdir -p ~/.config/rclone
+        rclone config create mega mega user=$MEGA_EMAIL pass=$MEGA_PASSWORD
+        echo "Configuration complete"
+        
+    - name: Test Mega connection
+      run: |
+        echo "Testing Mega connection..."
+        rclone about mega: || echo "Warning: Could not get quota info"
+        
+    - name: List ROOT folders
+      run: |
+        echo "=================================================="
+        echo "ROOT LEVEL FOLDERS IN MEGA"
+        echo "=================================================="
+        rclone lsd mega:/ || echo "Error: Could not list root"
+        
+    - name: List all folders recursively
+      run: |
+        echo ""
+        echo "=================================================="
+        echo "ALL FOLDERS (RECURSIVE, MAX DEPTH 3)"
+        echo "=================================================="
+        rclone lsf mega:/ --recursive --dirs-only --max-depth 3 || echo "Error: Could not list recursive"
+        
+    - name: Try different path variations
+      run: |
+        echo ""
+        echo "=================================================="
+        echo "TRYING DIFFERENT PATH VARIATIONS"
+        echo "=================================================="
+        
+        echo ""
+        echo "--- Trying: /Cloud drive ---"
+        rclone lsd "mega:/Cloud drive" 2>&1 || echo "NOT FOUND"
+        
+        echo ""
+        echo "--- Trying: /Cloud Drive ---"
+        rclone lsd "mega:/Cloud Drive" 2>&1 || echo "NOT FOUND"
+        
+        echo ""
+        echo "--- Trying: /CloudDrive ---"
+        rclone lsd "mega:/CloudDrive" 2>&1 || echo "NOT FOUND"
+        
+        echo ""
+        echo "--- Trying: /cloud drive ---"
+        rclone lsd "mega:/cloud drive" 2>&1 || echo "NOT FOUND"
+        
+        echo ""
+        echo "--- Trying: /Облачный диск ---"
+        rclone lsd "mega:/Облачный диск" 2>&1 || echo "NOT FOUND"
+        
+    - name: List files in root
+      run: |
+        echo ""
+        echo "=================================================="
+        echo "ALL FILES IN ROOT (if any)"
+        echo "=================================================="
+        rclone lsf mega:/ --max-depth 1 || echo "Error: Could not list files"
+        
+    - name: Search for pdf folder
+      run: |
+        echo ""
+        echo "=================================================="
+        echo "SEARCHING FOR 'pdf' FOLDER"
+        echo "=================================================="
+        rclone lsf mega:/ --recursive --dirs-only --max-depth 5 | grep -i pdf || echo "No 'pdf' folder found"
+        
+    - name: Search for Input folder
+      run: |
+        echo ""
+        echo "=================================================="
+        echo "SEARCHING FOR 'Input' FOLDER"
+        echo "=================================================="
+        rclone lsf mega:/ --recursive --dirs-only --max-depth 5 | grep -i input || echo "No 'Input' folder found"
+        
+    - name: List everything with full paths
+      run: |
+        echo ""
+        echo "=================================================="
+        echo "COMPLETE FOLDER STRUCTURE"
+        echo "=================================================="
+        rclone tree mega:/ --max-depth 3 || rclone lsf mega:/ --recursive --dirs-only --max-depth 3
