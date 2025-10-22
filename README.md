@@ -384,3 +384,13 @@ MIT License. See [LICENSE](LICENSE) for details.
 [🐛 Report Bug](https://github.com/username/pdf-compressor/issues) • [💡 Request Feature](https://github.com/username/pdf-compressor/issues) • [📚 Wiki](https://github.com/username/pdf-compressor/wiki)
 
 </div>
+
+## 📊 Recent Statistics
+
+- **Last run:** 2025-10-22
+- **Files processed:** 0
+- **Space saved:** 0 B (0.0%)
+- **Compression level:** medium
+
+*Statistics updated automatically after each compression job.*
+
