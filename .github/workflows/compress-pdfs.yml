@@ -107,13 +107,12 @@ jobs:
         MAX_FILES: ${{ github.event.inputs.max_files || '50' }}
         DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
       run: |
-        cd src
-        python main.py \
+        python src/main.py \
           --source "$SOURCE_FOLDER" \
           --target "$TARGET_FOLDER" \
           --level "$COMPRESSION_LEVEL" \
           --max-files "$MAX_FILES" \
-          --log-file "../temp/logs/compression.log" \
+          --log-file "temp/logs/compression.log" \
           --log-level "INFO" \
           $( [[ "$DRY_RUN" == "true" ]] && echo "--dry-run" || echo "" )
           

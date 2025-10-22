@@ -164,27 +164,25 @@ jobs:
     - name: 🗜️ Run compression
       id: compression
       run: |
-        cd src
-        
         # Базовые параметры
         ARGS=(
           "--source" "${{ github.event.inputs.source_folder }}"
           "--target" "${{ github.event.inputs.target_folder }}"
           "--level" "${{ github.event.inputs.compression_level }}"
           "--max-files" "${{ github.event.inputs.max_files }}"
-          "--log-file" "../temp/logs/manual_compression.log"
+          "--log-file" "temp/logs/manual_compression.log"
           "--log-level" "INFO"
-          "--config" "../temp/manual_settings.yaml"
+          "--config" "temp/manual_settings.yaml"
         )
-        
+
         # Добавляем dry-run если нужно
         if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
           ARGS+=("--dry-run")
         fi
-        
+
         # Запускаем компрессию
         echo "🚀 Starting compression with parameters: ${ARGS[@]}"
-        python main.py "${ARGS[@]}"
+        python src/main.py "${ARGS[@]}"
         
         # Сохраняем код возврата
         echo "exit_code=$?" >> $GITHUB_OUTPUT
