@@ -66,9 +66,15 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ghostscript qpdf poppler-utils
         
-        # Проверяем установку
+        # Install rclone
+        echo "Installing rclone..."
+        curl https://rclone.org/install.sh | sudo bash
+        
+        # Verify installations
+        echo "Verifying installations..."
         gs --version
         qpdf --version
+        rclone version
         
     - name: 🔧 Install Python dependencies
       run: |
@@ -97,6 +103,17 @@ jobs:
         info = compressor.get_compression_info()
         print('Available tools:', info['available_tools'])
         print('Configuration OK ✅')
+        "
+        
+        echo "Testing rclone client..."
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        from rclone_client import RcloneClient
+        from utils import setup_logging
+        
+        setup_logging(level='INFO')
+        print('RcloneClient module loaded successfully ✅')
         "
         
     - name: 🗜️ Run PDF compression
@@ -136,7 +153,7 @@ jobs:
           temp/report.md
         retention-days: 30
         
-    - name: 🔄 Update README stats
+    - name: 📄 Update README stats
       if: success()
       run: |
         python scripts/update_readme_stats.py

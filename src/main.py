@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from utils import setup_logging, format_file_size, format_duration, print_banner, create_temp_dirs, cleanup_temp_files, save_statistics
 from config import get_config
 from compressor import PDFCompressor
-from mega_client import MegaClient
+from rclone_client import RcloneClient
 
 
 class PDFBatchCompressor:
@@ -126,7 +126,7 @@ class PDFBatchCompressor:
         """Инициализация Mega клиента и компрессора"""
         try:
             # Mega клиент
-            self.mega_client = MegaClient()
+            self.mega_client = RcloneClient()
             
             # PDF компрессор
             self.compressor = PDFCompressor(level=self.compression_level)
