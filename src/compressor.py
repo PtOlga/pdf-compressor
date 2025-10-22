@@ -328,6 +328,10 @@ class PDFCompressor:
             
             if result.returncode == 0:
                 return {'success': True, 'method': 'qpdf', 'error': None}
+            elif result.returncode == 3 or "operation succeeded with warnings" in result.stderr:
+                # Warnings are OK - file was processed successfully
+                self.logger.debug(f"QPDF warning (non-critical): {result.stderr}")
+                return {"success": True, "method": "qpdf", "error": None}
             else:
                 error_msg = result.stderr or f"QPDF завершился с кодом {result.returncode}"
                 return self._error_result(f"QPDF ошибка: {error_msg}")
