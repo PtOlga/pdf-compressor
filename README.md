@@ -390,6 +390,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 - **Last run:** 2025-10-22
 - **Files processed:** 0
 - **Space saved:** 0 B (0.0%)
-- **Compression level:** medium
+- **Compression level:** high
 
 *Statistics updated automatically after each compression job.*
