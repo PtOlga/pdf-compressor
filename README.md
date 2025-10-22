@@ -393,4 +393,3 @@ MIT License. See [LICENSE](LICENSE) for details.
 - **Compression level:** medium
 
 *Statistics updated automatically after each compression job.*
-
