@@ -158,10 +158,16 @@ pass = {obscured_password}
                     return
             
             # If we got here, neither method worked
-            error_msg = result.stderr if 'result' in locals() else "All connection methods failed"
+            if 'result' in locals():
+                if isinstance(result, dict):
+                    error_msg = result.get('error', 'Connection failed')
+                else:
+                    error_msg = result.stderr if hasattr(result, 'stderr') else 'Connection failed'
+            else:
+                error_msg = "All connection methods failed"
             
             # Check for specific errors
-            if 'Object (typically, node or user) not found' in error_msg:
+            if 'Object (typically, node or user) not found' in str(error_msg):
                 self.logger.error("❌ Authentication failed - check your credentials")
                 self.logger.error("   Possible causes:")
                 self.logger.error("   1. Incorrect email or password in GitHub Secrets")
