@@ -75,40 +75,101 @@ class RcloneClient:
         
         try:
             self.logger.info("🔐 Configuring rclone for Mega...")
+            self.logger.debug(f"   Email: {email[:3]}***@{email.split('@')[1] if '@' in email else '***'}")
             
-            # Create rclone config directory
+            # Method 1: Try using rclone config create with environment variables
+            # This is the most reliable method
+            self.logger.debug("🔧 Method 1: Using rclone config create...")
+            
+            # Set environment variables for rclone
+            env = os.environ.copy()
+            env['RCLONE_CONFIG_MEGA_TYPE'] = 'mega'
+            env['RCLONE_CONFIG_MEGA_USER'] = email
+            env['RCLONE_CONFIG_MEGA_PASS'] = password
+            
+            # Try direct connection test with env vars (no config file needed)
+            result = subprocess.run(
+                ['rclone', 'lsd', f'{self.remote_name}:/'],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env
+            )
+            
+            if result.returncode == 0:
+                self.logger.info("✅ Connected using environment variables")
+                self._authenticated = True
+                
+                # Save to config file for persistence
+                config_dir = Path.home() / '.config' / 'rclone'
+                config_dir.mkdir(parents=True, exist_ok=True)
+                config_file = config_dir / 'rclone.conf'
+                
+                # Create config using rclone config create
+                create_result = subprocess.run(
+                    ['rclone', 'config', 'create', self.remote_name, 'mega',
+                     f'user={email}', f'pass={password}'],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                
+                if create_result.returncode == 0:
+                    self.logger.debug("✅ Config file created")
+                else:
+                    self.logger.debug(f"⚠️ Config create warning: {create_result.stderr}")
+                
+                self._check_quota()
+                return
+            
+            # Method 2: Try manual config file creation with obscured password
+            self.logger.debug("🔧 Method 2: Trying manual config file...")
+            
             config_dir = Path.home() / '.config' / 'rclone'
             config_dir.mkdir(parents=True, exist_ok=True)
-            
             config_file = config_dir / 'rclone.conf'
             
-            # Create rclone config for Mega
-            # Note: Password needs to be obscured for rclone
+            # Obscure password
+            self.logger.debug("🔐 Obscuring password...")
             obscured_password = self._obscure_password(password)
             
-            config_content = f"""[{self.remote_name}]
+            if obscured_password:
+                # Create config with obscured password
+                config_content = f"""[{self.remote_name}]
 type = mega
 user = {email}
 pass = {obscured_password}
 """
+                
+                with open(config_file, 'w') as f:
+                    f.write(config_content)
+                
+                config_file.chmod(0o600)
+                self.logger.debug(f"✅ Config file created: {config_file}")
+                
+                # Test connection
+                self.logger.info("🔍 Testing Mega connection...")
+                result = self._run_rclone_command(['lsd', f'{self.remote_name}:/'], timeout=30)
+                
+                if result['success']:
+                    self._authenticated = True
+                    self.logger.info("✅ Successfully connected to Mega")
+                    self._check_quota()
+                    return
             
-            # Write config file
-            with open(config_file, 'w') as f:
-                f.write(config_content)
+            # If we got here, neither method worked
+            error_msg = result.stderr if 'result' in locals() else "All connection methods failed"
             
-            # Set restrictive permissions
-            config_file.chmod(0o600)
+            # Check for specific errors
+            if 'Object (typically, node or user) not found' in error_msg:
+                self.logger.error("❌ Authentication failed - check your credentials")
+                self.logger.error("   Possible causes:")
+                self.logger.error("   1. Incorrect email or password in GitHub Secrets")
+                self.logger.error("   2. Mega account locked or suspended")
+                self.logger.error("   3. Two-factor authentication enabled (not supported)")
+                self.logger.error("   4. Account email not verified")
             
-            # Test connection
-            self.logger.info("🔍 Testing Mega connection...")
-            result = self._run_rclone_command(['lsd', f'{self.remote_name}:/'], timeout=30)
-            
-            if result['success']:
-                self._authenticated = True
-                self.logger.info("✅ Successfully connected to Mega")
-                self._check_quota()
-            else:
-                raise Exception(f"Failed to connect to Mega: {result.get('error', 'Unknown error')}")
+            raise Exception(f"Failed to connect to Mega: {error_msg}")
                 
         except Exception as e:
             self.logger.error(f"❌ Error setting up rclone: {e}")
@@ -117,6 +178,7 @@ pass = {obscured_password}
     def _obscure_password(self, password: str) -> str:
         """Obscure password for rclone config"""
         try:
+            self.logger.debug("Running rclone obscure...")
             result = subprocess.run(
                 ['rclone', 'obscure', password],
                 capture_output=True,
@@ -124,15 +186,20 @@ pass = {obscured_password}
                 timeout=10
             )
             
-            if result.returncode == 0:
-                return result.stdout.strip()
+            if result.returncode == 0 and result.stdout.strip():
+                obscured = result.stdout.strip()
+                self.logger.debug(f"✅ Password obscured successfully (length: {len(obscured)})")
+                return obscured
             else:
-                raise Exception("Failed to obscure password")
+                self.logger.warning(f"⚠️ rclone obscure failed: {result.stderr}")
+                return None
                 
+        except subprocess.TimeoutExpired:
+            self.logger.warning("⚠️ rclone obscure timed out")
+            return None
         except Exception as e:
-            self.logger.error(f"❌ Error obscuring password: {e}")
-            # Fallback: use plain password (less secure but will work)
-            return password
+            self.logger.warning(f"⚠️ Error obscuring password: {e}")
+            return None
     
     def _run_rclone_command(self, args: List[str], timeout: int = 300) -> Dict[str, Any]:
         """

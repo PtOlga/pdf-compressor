@@ -116,6 +116,12 @@ jobs:
         print('RcloneClient module loaded successfully ✅')
         "
         
+    - name: 🔍 Diagnostic: Test Mega credentials
+      run: |
+        echo "Running Mega credentials diagnostic..."
+        python scripts/test_mega_credentials.py || true
+        echo "Diagnostic complete (non-blocking)"
+        
     - name: 🗜️ Run PDF compression
       env:
         SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Cloud Drive/pdf/Input' }}
