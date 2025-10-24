@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
-PDF Компрессор с поддержкой различных алгоритмов сжатия
+PDF Компрессор с поддержкой различных алгоритмов сжатия и fallback-логикой
 """
 
 import os
 import subprocess
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
-import tempfile
+from typing import Dict, Any, Optional
 import shutil
 
 # PDF библиотеки
 from pypdf import PdfReader, PdfWriter
 import pikepdf
-from PIL import Image
 
 # Наши модули
 from config import get_config
@@ -22,7 +20,7 @@ from utils import calculate_savings, format_file_size
 
 
 class PDFCompressor:
-    """Класс для сжатия PDF файлов"""
+    """Класс для сжатия PDF файлов с fallback-поддержкой"""
     
     def __init__(self, level: str = "medium"):
         self.config = get_config()
@@ -112,13 +110,13 @@ class PDFCompressor:
         self.logger.info(f"🗜️ Начинаю сжатие {input_file.name} "
                         f"({format_file_size(original_size)}) уровень: {self.level}")
         
-        # Выбираем лучший алгоритм сжатия
-        compression_method = self._choose_compression_method(input_path, original_size)
-        self.logger.info(f"📊 Выбран метод: {compression_method}")
+        # Выбираем предпочтительный метод
+        preferred_method = self._choose_compression_method(input_path, original_size)
+        self.logger.info(f"📊 Предпочтительный метод: {preferred_method}")
         
         try:
-            # Применяем сжатие
-            result = self._apply_compression(input_path, output_path, compression_method)
+            # Применяем сжатие с fallback
+            result = self._apply_compression(input_path, output_path, preferred_method)
             
             if result['success'] and output_file.exists():
                 compressed_size = output_file.stat().st_size
@@ -133,47 +131,44 @@ class PDFCompressor:
                 
                 return self._success_result(
                     input_path, output_path, original_size, compressed_size,
-                    f"Сжато методом {compression_method}"
+                    f"Сжато методом {result.get('method', 'unknown')}"
                 )
             else:
                 return result
                 
         except Exception as e:
-            self.logger.error(f"❌ Ошибка при сжатии: {str(e)}")
-            return self._error_result(f"Ошибка сжатия: {str(e)}")
+            self.logger.error(f"❌ Неожиданная ошибка при сжатии: {str(e)}")
+            return self._error_result(f"Неожиданная ошибка: {str(e)}")
     
     def _choose_compression_method(self, input_path: str, file_size: int) -> str:
         """
-        Выбор оптимального метода сжатия на основе анализа файла
+        Выбор предпочтительного метода сжатия на основе анализа файла
         """
         try:
-            # Анализируем PDF файл
             analysis = self._analyze_pdf(input_path)
             
-            # Большие файлы с изображениями - Ghostscript
+            # Большие файлы с изображениями → Ghostscript
             if (file_size > 10 * 1024 * 1024 and 
                 analysis['has_images'] and 
                 self.available_tools.get('ghostscript')):
                 return 'ghostscript'
             
-            # Файлы с формами и аннотациями - Pikepdf (безопаснее)
+            # Файлы с формами/аннотациями → Pikepdf
             if analysis['has_forms'] or analysis['has_annotations']:
                 return 'pikepdf'
             
-            # Если доступен QPDF - используем его для универсального сжатия
+            # QPDF — универсальный выбор, если доступен
             if self.available_tools.get('qpdf'):
                 return 'qpdf'
             
-            # Если доступен Ghostscript - используем его
+            # Иначе Ghostscript, если есть
             if self.available_tools.get('ghostscript'):
                 return 'ghostscript'
             
-            # Fallback на Pikepdf
             return 'pikepdf'
             
         except Exception as e:
             self.logger.warning(f"⚠️ Ошибка анализа файла: {e}")
-            # При ошибке анализа используем консервативный метод
             return 'pikepdf'
     
     def _analyze_pdf(self, input_path: str) -> Dict[str, Any]:
@@ -190,10 +185,9 @@ class PDFCompressor:
         try:
             with pikepdf.open(input_path) as pdf:
                 analysis['pages'] = len(pdf.pages)
-                analysis['encrypted'] = False  # если открылся, то не зашифрован
+                analysis['encrypted'] = False
                 
-                # Проверяем наличие изображений (упрощенно)
-                for page in pdf.pages[:min(5, len(pdf.pages))]:  # проверяем первые 5 страниц
+                for page in pdf.pages[:min(5, len(pdf.pages))]:
                     if '/XObject' in page.get('/Resources', {}):
                         xobjects = page['/Resources']['/XObject']
                         for obj in xobjects.values():
@@ -201,62 +195,83 @@ class PDFCompressor:
                                 analysis['has_images'] = True
                                 break
                     
-                    # Проверяем аннотации
                     if '/Annots' in page:
                         analysis['has_annotations'] = True
                 
-                # Проверяем формы (AcroForm)
                 if '/AcroForm' in pdf.Root:
                     analysis['has_forms'] = True
                     
         except Exception as e:
             self.logger.debug(f"Ошибка анализа с pikepdf: {e}")
-            # Пробуем pypdf
             try:
                 reader = PdfReader(input_path)
                 analysis['pages'] = len(reader.pages)
                 analysis['encrypted'] = reader.is_encrypted
-                
-                # Простая проверка на наличие изображений
                 for page in reader.pages[:min(3, len(reader.pages))]:
                     if '/XObject' in page.get('/Resources', {}):
                         analysis['has_images'] = True
                         break
-                        
             except Exception as e2:
                 self.logger.debug(f"Ошибка анализа с pypdf: {e2}")
         
         return analysis
     
-    def _apply_compression(self, input_path: str, output_path: str, method: str) -> Dict[str, Any]:
-        """Применение выбранного метода сжатия"""
+    def _apply_compression(self, input_path: str, output_path: str, preferred_method: str) -> Dict[str, Any]:
+        """
+        Применяет сжатие с fallback-цепочкой: сначала preferred_method,
+        затем остальные доступные методы по приоритету.
+        """
+        all_methods = ['ghostscript', 'qpdf', 'pikepdf', 'pypdf']
+        available_methods = [
+            m for m in all_methods 
+            if self.available_tools.get(m, True)
+        ]
         
-        try:
-            if method == 'ghostscript' and self.available_tools.get('ghostscript'):
-                return self._compress_with_ghostscript(input_path, output_path)
-            elif method == 'qpdf' and self.available_tools.get('qpdf'):
-                return self._compress_with_qpdf(input_path, output_path)
-            elif method == 'pikepdf':
-                return self._compress_with_pikepdf(input_path, output_path)
-            else:
-                # Fallback на pypdf
-                return self._compress_with_pypdf(input_path, output_path)
-                
-        except Exception as e:
-            self.logger.error(f"❌ Ошибка в методе {method}: {e}")
-            
-            # Пробуем запасной метод
-            if method != 'pikepdf':
-                self.logger.info("🔄 Пробую запасной метод: pikepdf")
-                return self._compress_with_pikepdf(input_path, output_path)
-            else:
-                return self._error_result(f"Все методы сжатия не удались: {str(e)}")
-    
+        if preferred_method in available_methods:
+            methods_to_try = [preferred_method] + [m for m in available_methods if m != preferred_method]
+        else:
+            methods_to_try = available_methods
+
+        self.logger.debug(f"Планирую попробовать методы в порядке: {methods_to_try}")
+
+        last_error = None
+
+        for method in methods_to_try:
+            self.logger.info(f"🔄 Пробую метод сжатия: {method}")
+            try:
+                if method == 'ghostscript':
+                    result = self._compress_with_ghostscript(input_path, output_path)
+                elif method == 'qpdf':
+                    result = self._compress_with_qpdf(input_path, output_path)
+                elif method == 'pikepdf':
+                    result = self._compress_with_pikepdf(input_path, output_path)
+                elif method == 'pypdf':
+                    result = self._compress_with_pypdf(input_path, output_path)
+                else:
+                    result = self._error_result(f"Неизвестный метод: {method}")
+                    continue
+
+                if result['success']:
+                    result['method'] = method
+                    return result
+                else:
+                    error_msg = result.get('error') or "Неизвестная ошибка"
+                    self.logger.warning(f"Метод {method} завершился неудачей: {error_msg}")
+                    last_error = error_msg
+
+            except Exception as e:
+                error_msg = f"Исключение в {method}: {str(e)}"
+                self.logger.error(error_msg)
+                last_error = error_msg
+                continue
+
+        final_error = f"Все методы сжатия завершились неудачей. Последняя ошибка: {last_error}"
+        self.logger.error(final_error)
+        return self._error_result(final_error)
+
     def _compress_with_ghostscript(self, input_path: str, output_path: str) -> Dict[str, Any]:
         """Сжатие с помощью Ghostscript"""
         preset = self.compression_settings.get('ghostscript_preset', 'ebook')
-        
-        # Команда Ghostscript
         cmd = [
             'gs',
             '-sDEVICE=pdfwrite',
@@ -269,11 +284,9 @@ class PDFCompressor:
             input_path
         ]
         
-        # Дополнительные настройки для более агрессивного сжатия
         if self.level in ['medium', 'high']:
             image_quality = self.compression_settings.get('image_quality', 75)
             image_resolution = self.compression_settings.get('image_resolution', 150)
-            
             additional_params = [
                 f'-dColorImageResolution={image_resolution}',
                 f'-dGrayImageResolution={image_resolution}',
@@ -286,23 +299,16 @@ class PDFCompressor:
                 '-dOptimize=true',
                 '-dEmbedAllFonts=true'
             ]
-            
-            # Добавляем параметры перед последними двумя аргументами
             cmd = cmd[:-2] + additional_params + cmd[-2:]
         
         try:
             self.logger.debug(f"Ghostscript команда: {' '.join(cmd)}")
-            result = subprocess.run(cmd, 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=300)  # 5 минут таймаут
-            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if result.returncode == 0:
-                return {'success': True, 'method': 'ghostscript', 'error': None}
+                return {'success': True, 'error': None}
             else:
                 error_msg = result.stderr or f"Ghostscript завершился с кодом {result.returncode}"
                 return self._error_result(f"Ghostscript ошибка: {error_msg}")
-                
         except subprocess.TimeoutExpired:
             return self._error_result("Ghostscript превысил время ожидания (5 мин)")
         except Exception as e:
@@ -311,61 +317,49 @@ class PDFCompressor:
     def _compress_with_qpdf(self, input_path: str, output_path: str) -> Dict[str, Any]:
         """Сжатие с помощью QPDF"""
         cmd = [
-            'qpdf', 
-            '--linearize',  # Оптимизация для веб
+            'qpdf',
+            '--linearize',
             '--compress-streams=y',
             '--recompress-flate',
             '--compression-level=9',
-            input_path, 
+            input_path,
             output_path
         ]
-        
         try:
-            result = subprocess.run(cmd, 
-                                  capture_output=True, 
-                                  text=True, 
-                                  timeout=180)  # 3 минуты
-            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
             if result.returncode == 0:
-                return {'success': True, 'method': 'qpdf', 'error': None}
+                return {'success': True, 'error': None}
             elif result.returncode == 3 or "operation succeeded with warnings" in result.stderr:
-                # Warnings are OK - file was processed successfully
                 self.logger.debug(f"QPDF warning (non-critical): {result.stderr}")
-                return {"success": True, "method": "qpdf", "error": None}
+                return {"success": True, "error": None}
             else:
                 error_msg = result.stderr or f"QPDF завершился с кодом {result.returncode}"
                 return self._error_result(f"QPDF ошибка: {error_msg}")
-                
         except subprocess.TimeoutExpired:
             return self._error_result("QPDF превысил время ожидания")
         except Exception as e:
             return self._error_result(f"Ошибка запуска QPDF: {str(e)}")
     
     def _compress_with_pikepdf(self, input_path: str, output_path: str) -> Dict[str, Any]:
-        """Сжатие с помощью Pikepdf"""
+        """Сжатие с помощью Pikepdf с устойчивостью к ошибкам потоков"""
         try:
             with pikepdf.open(input_path) as pdf:
-                # Применяем различные оптимизации
                 for page in pdf.pages:
-                    # Сжимаем содержимое страниц
-                    page.compress_content_streams()
-                    
-                    # Оптимизируем изображения (если уровень high)
+                    try:
+                        page.compress_content_streams()
+                    except Exception as e:
+                        self.logger.debug(f"⚠️ Не удалось сжать потоки на странице: {e}. Пропускаем.")
                     if self.level == 'high':
                         self._optimize_page_images(page)
-                
-                # Удаляем неиспользуемые объекты
                 pdf.remove_unreferenced_resources()
-                
-                # Сохраняем с максимальным сжатием
-                pdf.save(output_path, 
-                        compress_streams=True,
-                        stream_decode_level=pikepdf.StreamDecodeLevel.all,
-                        object_stream_mode=pikepdf.ObjectStreamMode.generate,
-                        minimize_size=True)
-                
-                return {'success': True, 'method': 'pikepdf', 'error': None}
-                
+                pdf.save(
+                    output_path,
+                    compress_streams=True,
+                    stream_decode_level=pikepdf.StreamDecodeLevel.all,
+                    object_stream_mode=pikepdf.ObjectStreamMode.generate,
+                    minimize_size=True
+                )
+                return {'success': True, 'error': None}
         except Exception as e:
             return self._error_result(f"Pikepdf ошибка: {str(e)}")
     
@@ -374,38 +368,26 @@ class PDFCompressor:
         try:
             reader = PdfReader(input_path)
             writer = PdfWriter()
-            
-            # Копируем все страницы с компрессией
             for page in reader.pages:
-                page.compress_content_streams()  # Сжимаем потоки содержимого
+                try:
+                    page.compress_content_streams()
+                except Exception as e:
+                    self.logger.debug(f"⚠️ PyPDF не смог сжать потоки: {e}")
                 writer.add_page(page)
-            
-            # Удаляем дубликаты объектов
             writer.remove_duplicates()
-            
-            # Сохраняем
-            with open(output_path, 'wb') as output_file:
-                writer.write(output_file)
-                
-            return {'success': True, 'method': 'pypdf', 'error': None}
-            
+            with open(output_path, 'wb') as f:
+                writer.write(f)
+            return {'success': True, 'error': None}
         except Exception as e:
             return self._error_result(f"PyPDF ошибка: {str(e)}")
     
     def _optimize_page_images(self, page):
-        """Оптимизация изображений на странице (экспериментальная функция)"""
-        try:
-            # Этот метод требует более сложной реализации
-            # Пока оставляем заглушку
-            pass
-        except Exception as e:
-            self.logger.debug(f"Ошибка оптимизации изображений: {e}")
+        """Заглушка для будущей оптимизации изображений"""
+        pass
     
     def _success_result(self, input_path: str, output_path: str, 
                        size_before: int, size_after: int, message: str = "") -> Dict[str, Any]:
-        """Формирование результата успешного сжатия"""
         savings = calculate_savings(size_before, size_after)
-        
         return {
             'success': True,
             'input_path': input_path,
@@ -420,7 +402,6 @@ class PDFCompressor:
         }
     
     def _error_result(self, error_message: str) -> Dict[str, Any]:
-        """Формирование результата ошибки"""
         return {
             'success': False,
             'input_path': None,
@@ -437,16 +418,11 @@ class PDFCompressor:
     def verify_compressed_file(self, file_path: str) -> bool:
         """Проверка целостности сжатого PDF файла"""
         try:
-            # Проверяем с помощью pikepdf
             with pikepdf.open(file_path):
                 pass
-            
-            # Проверяем с помощью pypdf
             reader = PdfReader(file_path)
-            len(reader.pages)  # Пытаемся прочитать количество страниц
-            
+            len(reader.pages)
             return True
-            
         except Exception as e:
             self.logger.error(f"❌ Проверка файла {file_path} не удалась: {e}")
             return False
@@ -471,28 +447,22 @@ def test_compressor():
     
     print("🧪 Тестирование PDF компрессора...")
     
-    # Создаем тестовый PDF файл
     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as test_input:
         c = canvas.Canvas(test_input.name, pagesize=letter)
         width, height = letter
-        
-        # Добавляем много текста для увеличения размера
         for i in range(100):
             c.drawString(100, height - 50 - i*10, f"Тестовая строка номер {i} " * 10)
-        
         c.save()
         test_input_path = test_input.name
-    
-    # Создаем компрессор
+
     compressor = PDFCompressor(level="medium")
     print(f"📊 Доступные инструменты: {compressor.available_tools}")
-    
-    # Тестируем сжатие
+
     with tempfile.NamedTemporaryFile(suffix='_compressed.pdf', delete=False) as test_output:
         test_output_path = test_output.name
-    
+
     result = compressor.compress(test_input_path, test_output_path)
-    
+
     if result['success']:
         print(f"✅ Сжатие успешно!")
         print(f"   📄 Размер до: {format_file_size(result['size_before'])}")
@@ -502,7 +472,6 @@ def test_compressor():
     else:
         print(f"❌ Ошибка сжатия: {result['error']}")
     
-    # Очистка
     Path(test_input_path).unlink(missing_ok=True)
     Path(test_output_path).unlink(missing_ok=True)
 
