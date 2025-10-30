@@ -96,11 +96,11 @@ class MegaWebDAVClient:
             self.logger.warning("⚠️ Could not verify login with mega-whoami")
 
     def _start_webdav(self):
-        """Serve root (/) via WebDAV and capture served URL.
-        We use 'mega-webdav /' which prints the served URL.
+        """Serve root (/) via WebDAV and capture served URL printed by MEGAcmd.
+        MEGAcmd typically prints a URL ending with either '/Cloud%20Drive' or '/Incoming%20Shares'.
         """
         self.logger.info("🌐 Starting MEGA WebDAV for root '/'")
-        # First, try to list existing served locations to avoid duplicates
+        # First, try to list existing served locations to avoid duplicates (best-effort)
         subprocess.run(['mega-webdav'], capture_output=True, text=True)
 
         # Serve root
@@ -108,24 +108,21 @@ class MegaWebDAVClient:
         if proc.returncode != 0:
             # If already served, 'mega-webdav' without args will list them
             listing = subprocess.run(['mega-webdav'], capture_output=True, text=True, timeout=10)
-            output = listing.stdout + proc.stdout + proc.stderr
+            output = (listing.stdout or '') + (proc.stdout or '') + (proc.stderr or '')
         else:
-            output = proc.stdout
+            output = proc.stdout or ''
 
-        # Extract URL (http://127.0.0.1:4443/XXXX...)
-        m = re.search(r"http://127\.0\.0\.1:\d+/(?:[A-Za-z0-9_-]+)/?", output)
+        # Extract FULL URL including trailing path (e.g. .../Cloud%20Drive)
+        m = re.search(r"(https?://127\.0\.0\.1:\d+/\S+)", output)
         if not m:
-            # Try another common pattern: show both path and url
-            m = re.search(r"(http://127\.0\.0\.1:\d+/[^\s]+)", output)
-        if not m:
-            # last attempt: call 'mega-webdav' (list) and parse
+            # Last attempt: call 'mega-webdav' (list) and parse
             listing2 = subprocess.run(['mega-webdav'], capture_output=True, text=True, timeout=10)
-            m = re.search(r"(http://127\.0\.0\.1:\d+/[^\s]+)", listing2.stdout)
+            m = re.search(r"(https?://127\.0\.0\.1:\d+/\S+)", listing2.stdout or '')
         if not m:
             raise Exception(f"Could not determine MEGAcmd WebDAV URL from output:\n{output}")
 
-        # Use the entire match as URL (works for both patterns)
-        self._served_url = m.group(0).rstrip('/')
+        # Use the entire match as URL
+        self._served_url = m.group(1).rstrip('/')
         self.logger.info(f"🔗 MEGA WebDAV URL: {self._served_url}")
         # Give the server a moment to be ready
         time.sleep(1)
@@ -134,19 +131,30 @@ class MegaWebDAVClient:
         assert self._served_url, "WebDAV URL not set"
         self.logger.info("🔧 Configuring rclone WebDAV remote for MEGA...")
 
-        # Create/update rclone remote
+        # If MEGAcmd printed Cloud Drive, but we need Incoming Shares, swap the branch
+        # We always use this client for Incoming Shares, so prefer that branch.
+        url_for_remote = self._served_url
+        if '/Cloud%20Drive' in url_for_remote:
+            url_for_remote = url_for_remote.replace('/Cloud%20Drive', '/Incoming%20Shares')
+        elif not url_for_remote.endswith('/Incoming%20Shares'):
+            # Fallback: append Incoming Shares explicitly
+            url_for_remote = url_for_remote + '/Incoming%20Shares'
+
+        # Best-effort: remove existing remote to avoid stale URL
+        subprocess.run(['rclone', 'config', 'delete', self.remote_name], capture_output=True, text=True)
+
+        # Create rclone remote pointing directly to Incoming Shares
         create = subprocess.run(
-            ['rclone', 'config', 'create', self.remote_name, 'webdav', f'url={self._served_url}', 'vendor=other'],
+            ['rclone', 'config', 'create', self.remote_name, 'webdav', f'url={url_for_remote}', 'vendor=other'],
             capture_output=True, text=True, timeout=30
         )
         if create.returncode != 0:
-            # Ignore errors if it already exists; we will test it anyway
             self.logger.debug(f"rclone config create output: {create.stdout or create.stderr}")
 
-        # Test connection (list root)
+        # Test connection (list root of Incoming Shares)
         test = subprocess.run(['rclone', 'lsd', f'{self.remote_name}:'], capture_output=True, text=True, timeout=30)
         if test.returncode == 0:
-            self.logger.info("✅ rclone WebDAV remote is ready")
+            self.logger.info("✅ rclone WebDAV remote is ready (Incoming Shares)")
         else:
             raise Exception(f"rclone WebDAV remote test failed: {test.stderr or test.stdout}")
 
@@ -186,7 +194,7 @@ class MegaWebDAVClient:
     @staticmethod
     def _normalize_incoming_shares_path(path: str) -> str:
         # Normalize the first segment to the canonical name used by MEGAcmd WebDAV
-        # Common variants: 
+        # Common variants:
         #   /Incoming shares/...  -> /Incoming Shares/...
         #   /incoming Shares/...  -> /Incoming Shares/...
         if not path:
@@ -205,6 +213,21 @@ class MegaWebDAVClient:
             return '/Incoming Shares/' + path[len('/incoming shares/'):]
         return path
 
+    def _rel_path(self, path: str) -> str:
+        """Convert an absolute MEGA path into a path relative to the WebDAV base.
+        Our WebDAV base is set to '/Incoming%20Shares', so we strip '/Incoming Shares/'.
+        """
+        if not path:
+            return ''
+        p = self._normalize_incoming_shares_path(path).strip()
+        # Trim leading slash for easier handling
+        if p.startswith('/'):
+            p = p[1:]
+        if p.lower().startswith('incoming shares/'):
+            return p[len('Incoming Shares/'):]
+        return p
+
+
     def list_pdf_files(self, folder_path: str) -> List[Dict[str, Any]]:
         from utils import format_file_size  # local import to avoid cycles
         import json
@@ -212,8 +235,9 @@ class MegaWebDAVClient:
 
         self._ensure_connected()
         folder_path = self._normalize_incoming_shares_path(folder_path).strip().rstrip('/')
+        rel_path = self._rel_path(folder_path).rstrip('/')
         self.logger.info(f"🔍 (WebDAV) Scanning folder: {folder_path}")
-        res = self._run_rclone_command(['lsjson', '--recursive', '--files-only', f'{self.remote_name}:{folder_path}'])
+        res = self._run_rclone_command(['lsjson', '--recursive', '--files-only', f'{self.remote_name}:{rel_path}'])
         if not res['success']:
             self.logger.error(f"❌ Error listing files: {res.get('error', 'Unknown error')}")
             return []
@@ -246,50 +270,50 @@ class MegaWebDAVClient:
 
     def download_file(self, remote_path: str, local_path: str) -> bool:
         self._ensure_connected()
-        remote_path = self._normalize_incoming_shares_path(remote_path).strip()
+        rel_remote = self._rel_path(remote_path)
         local = Path(local_path)
         local.parent.mkdir(parents=True, exist_ok=True)
-        res = self._run_rclone_command(['copyto', f'{self.remote_name}:{remote_path}', str(local), '--progress'])
+        res = self._run_rclone_command(['copyto', f'{self.remote_name}:{rel_remote}', str(local), '--progress'])
         return res['success'] and local.exists()
 
     def upload_file(self, local_path: str, remote_path: str) -> bool:
         self._ensure_connected()
-        remote_path = self._normalize_incoming_shares_path(remote_path).strip()
+        rel_remote = self._rel_path(remote_path)
         local = Path(local_path)
         if not local.exists():
             self.logger.error(f"❌ Local file not found: {local_path}")
             return False
         # Ensure parent dir
-        parent = str(Path(remote_path).parent)
+        parent = str(Path(rel_remote).parent)
         if parent and parent != '.':
             self._run_rclone_command(['mkdir', f'{self.remote_name}:{parent}'])
-        res = self._run_rclone_command(['copyto', str(local), f'{self.remote_name}:{remote_path}', '--progress'])
+        res = self._run_rclone_command(['copyto', str(local), f'{self.remote_name}:{rel_remote}', '--progress'])
         return bool(res['success'])
 
     def delete_file(self, remote_path: str) -> bool:
         self._ensure_connected()
-        remote_path = self._normalize_incoming_shares_path(remote_path).strip()
-        res = self._run_rclone_command(['deletefile', f'{self.remote_name}:{remote_path}'])
+        rel_remote = self._rel_path(remote_path)
+        res = self._run_rclone_command(['deletefile', f'{self.remote_name}:{rel_remote}'])
         return bool(res['success'])
 
     def move_file(self, source_path: str, target_path: str) -> bool:
         self._ensure_connected()
-        source_path = self._normalize_incoming_shares_path(source_path).strip()
-        target_path = self._normalize_incoming_shares_path(target_path).strip()
-        parent = str(Path(target_path).parent)
+        rel_source = self._rel_path(source_path)
+        rel_target = self._rel_path(target_path)
+        parent = str(Path(rel_target).parent)
         if parent and parent != '.':
             self._run_rclone_command(['mkdir', f'{self.remote_name}:{parent}'])
-        res = self._run_rclone_command(['moveto', f'{self.remote_name}:{source_path}', f'{self.remote_name}:{target_path}'])
+        res = self._run_rclone_command(['moveto', f'{self.remote_name}:{rel_source}', f'{self.remote_name}:{rel_target}'])
         return bool(res['success'])
 
     def copy_file(self, source_path: str, target_path: str) -> bool:
         self._ensure_connected()
-        source_path = self._normalize_incoming_shares_path(source_path).strip()
-        target_path = self._normalize_incoming_shares_path(target_path).strip()
-        parent = str(Path(target_path).parent)
+        rel_source = self._rel_path(source_path)
+        rel_target = self._rel_path(target_path)
+        parent = str(Path(rel_target).parent)
         if parent and parent != '.':
             self._run_rclone_command(['mkdir', f'{self.remote_name}:{parent}'])
-        res = self._run_rclone_command(['copyto', f'{self.remote_name}:{source_path}', f'{self.remote_name}:{target_path}'])
+        res = self._run_rclone_command(['copyto', f'{self.remote_name}:{rel_source}', f'{self.remote_name}:{rel_target}'])
         return bool(res['success'])
 
     def get_folder_info(self, folder_path: str) -> Dict[str, Any]:
