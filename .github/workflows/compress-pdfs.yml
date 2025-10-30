@@ -12,12 +12,12 @@ on:
       source_folder:
         description: 'Mega folder path to process'
         required: false
-        default: '/Incoming shares/WI/pdf/Input'
+        default: '/Incoming shares/WI/PDF/Input'
         type: string
       target_folder:
         description: 'Mega folder for compressed files'
         required: false
-        default: '/Incoming shares/WI/pdf/Compressed'
+        default: '/Incoming shares/WI/PDF/Compressed'
         type: string
       compression_level:
         description: 'Compression level'
