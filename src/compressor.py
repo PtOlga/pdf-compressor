@@ -110,14 +110,33 @@ class PDFCompressor:
         self.logger.info(f"🗜️ Начинаю сжатие {input_file.name} "
                         f"({format_file_size(original_size)}) уровень: {self.level}")
         
+        # Анализируем файл и логируем тип содержимого
+        analysis = self._analyze_pdf(input_path)
+        self.logger.info(
+            "🔎 Анализ: pages=%s, images=%s, forms=%s, annots=%s, encrypted=%s",
+            analysis.get('pages', 0),
+            analysis.get('has_images', False),
+            analysis.get('has_forms', False),
+            analysis.get('has_annotations', False),
+            analysis.get('encrypted', False),
+        )
+        # Определяем тип содержимого
+        if analysis.get('has_images') and not (analysis.get('has_forms') or analysis.get('has_annotations')):
+            content_type = 'image-heavy/scanned'
+        elif analysis.get('has_forms') or analysis.get('has_annotations'):
+            content_type = 'interactive/forms/annotations'
+        else:
+            content_type = 'text-based/standard'
+        self.logger.info(f"🧭 Тип содержимого: {content_type}")
+
         # Выбираем предпочтительный метод
-        preferred_method = self._choose_compression_method(input_path, original_size)
+        preferred_method = self._choose_compression_method(input_path, original_size, analysis=analysis)
         self.logger.info(f"📊 Предпочтительный метод: {preferred_method}")
-        
+
         try:
             # Применяем сжатие с fallback
             result = self._apply_compression(input_path, output_path, preferred_method)
-            
+
             if result['success'] and output_file.exists():
                 compressed_size = output_file.stat().st_size
                 savings = calculate_savings(original_size, compressed_size)
@@ -140,33 +159,33 @@ class PDFCompressor:
             self.logger.error(f"❌ Неожиданная ошибка при сжатии: {str(e)}")
             return self._error_result(f"Неожиданная ошибка: {str(e)}")
     
-    def _choose_compression_method(self, input_path: str, file_size: int) -> str:
+    def _choose_compression_method(self, input_path: str, file_size: int, analysis: Optional[Dict[str, Any]] = None) -> str:
         """
         Выбор предпочтительного метода сжатия на основе анализа файла
         """
         try:
-            analysis = self._analyze_pdf(input_path)
-            
+            analysis = analysis or self._analyze_pdf(input_path)
+
             # Большие файлы с изображениями → Ghostscript
-            if (file_size > 10 * 1024 * 1024 and 
-                analysis['has_images'] and 
+            if (file_size > 10 * 1024 * 1024 and
+                analysis.get('has_images') and
                 self.available_tools.get('ghostscript')):
                 return 'ghostscript'
-            
+
             # Файлы с формами/аннотациями → Pikepdf
-            if analysis['has_forms'] or analysis['has_annotations']:
+            if analysis.get('has_forms') or analysis.get('has_annotations'):
                 return 'pikepdf'
-            
+
             # QPDF — универсальный выбор, если доступен
             if self.available_tools.get('qpdf'):
                 return 'qpdf'
-            
+
             # Иначе Ghostscript, если есть
             if self.available_tools.get('ghostscript'):
                 return 'ghostscript'
-            
+
             return 'pikepdf'
-            
+
         except Exception as e:
             self.logger.warning(f"⚠️ Ошибка анализа файла: {e}")
             return 'pikepdf'
@@ -219,14 +238,15 @@ class PDFCompressor:
     def _apply_compression(self, input_path: str, output_path: str, preferred_method: str) -> Dict[str, Any]:
         """
         Применяет сжатие с fallback-цепочкой: сначала preferred_method,
-        затем остальные доступные методы по приоритету.
+        затем остальные доступные методы по приоритету. Если экономия 0% или меньше,
+        пробуем следующий метод.
         """
         all_methods = ['ghostscript', 'qpdf', 'pikepdf', 'pypdf']
         available_methods = [
-            m for m in all_methods 
+            m for m in all_methods
             if self.available_tools.get(m, True)
         ]
-        
+
         if preferred_method in available_methods:
             methods_to_try = [preferred_method] + [m for m in available_methods if m != preferred_method]
         else:
@@ -235,8 +255,9 @@ class PDFCompressor:
         self.logger.debug(f"Планирую попробовать методы в порядке: {methods_to_try}")
 
         last_error = None
+        original_size = Path(input_path).stat().st_size if Path(input_path).exists() else 0
 
-        for method in methods_to_try:
+        for idx, method in enumerate(methods_to_try):
             self.logger.info(f"🔄 Пробую метод сжатия: {method}")
             try:
                 if method == 'ghostscript':
@@ -252,6 +273,29 @@ class PDFCompressor:
                     continue
 
                 if result['success']:
+                    # Оцениваем экономию
+                    try:
+                        if Path(output_path).exists() and original_size > 0:
+                            out_size = Path(output_path).stat().st_size
+                            savings = calculate_savings(original_size, out_size)
+                            self.logger.info(
+                                "   → %s: %s (%s → %s)",
+                                method,
+                                savings['size_reduction'],
+                                format_file_size(original_size),
+                                format_file_size(out_size)
+                            )
+                            # Если нет экономии и есть ещё методы — пробуем следующий
+                            if savings['percent_saved'] <= 0 and idx < len(methods_to_try) - 1:
+                                self.logger.info("📉 Выигрыш 0%%, пробую следующий метод...")
+                                try:
+                                    Path(output_path).unlink(missing_ok=True)
+                                except Exception:
+                                    pass
+                                continue
+                    except Exception as e:
+                        self.logger.debug(f"⚠️ Не удалось оценить экономию: {e}")
+
                     result['method'] = method
                     return result
                 else:

@@ -305,30 +305,35 @@ def main():
         
         # Load statistics
         stats = load_stats(stats_file)
-        
+
+        # Skip Telegram if no files were found/processed
+        if stats and stats.get('processed_files', 0) == 0 and stats.get('failed_files', 0) == 0:
+            print("[INFO] No files found. Skipping Telegram notification.")
+            sys.exit(0)
+
         # Load report if needed
         report_content = ""
         if Path(report_file).exists():
             with open(report_file, 'r', encoding='utf-8') as f:
                 report_content = f.read()
-        
+
         # Create notifier
         notifier = TelegramNotifier()
-        
+
         # Send main message
         message = create_telegram_message(report_content, stats)
-        
+
         print("[TELEGRAM] Sending Telegram notification...")
         success = notifier.send_message(message)
-        
+
         if success:
             print("[SUCCESS] Telegram notification sent successfully")
-            
+
             # Send detailed report as document if it exists and is large
             if Path(report_file).exists() and len(report_content) > 2000:
                 print("[ATTACH] Sending detailed report as document...")
                 doc_success = notifier.send_document(
-                    report_file, 
+                    report_file,
                     "[FILE] Detailed compression report"
                 )
                 if doc_success:
@@ -338,7 +343,7 @@ def main():
         else:
             print("[ERROR] Failed to send Telegram notification")
             sys.exit(1)
-            
+
     except Exception as e:
         print(f"[ERROR] Error sending notification: {e}")
         sys.exit(1)
