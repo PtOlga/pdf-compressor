@@ -2,19 +2,19 @@
 
 Automatic batch PDF compressor with Mega cloud storage integration and GitHub Actions.
 
-[![Compress PDFs](https://github.com/username/pdf-compressor/actions/workflows/compress-pdfs.yml/badge.svg)](https://github.com/username/pdf-compressor/actions/workflows/compress-pdfs.yml)
-[![Manual Compression](https://github.com/username/pdf-compressor/actions/workflows/manual-trigger.yml/badge.svg)](https://github.com/username/pdf-compressor/actions/workflows/manual-trigger.yml)
+[![Compress PDFs](https://github.com/PtOlga/pdf-compressor/actions/workflows/compress-pdfs.yml/badge.svg)](https://github.com/PtOlga/pdf-compressor/actions/workflows/compress-pdfs.yml)
 
 ## ✨ Features
 
-- 🚀 **Automatic compression** of PDF files on schedule
-- 🗂️ **Mega integration** - direct work with cloud storage
-- 🤖 **GitHub Actions** - completely free automation
-- 🎯 **Smart compression** - optimal algorithm selection for each file
-- 📊 **Detailed statistics** - reports on space and time savings
-- 📱 **Telegram notifications** - receive results on your phone
-- 🛡️ **Security** - backup and integrity verification
-- ⚙️ **Flexible configuration** - various compression parameters
+- 🚀 Automatic compression on schedule
+- 🗂️ Mega via rclone (stable CLI; replaces mega.py)
+- 🤖 GitHub Actions automation
+- 🎯 Smart compression: content analysis selects the most suitable starting method
+- 🔁 Fallback across Ghostscript, QPDF, pikepdf, pypdf; retries on errors or 0% savings; logs the full attempt chain
+- 📱 Telegram notifications: skipped if no files found; Telegram shows only the final summary
+- 📊 Detailed statistics in logs/artifacts
+- 🛡️ Security — backup and integrity verification
+- ⚙️ Flexible configuration
 
 ## 📋 Compression Algorithms
 
@@ -82,7 +82,7 @@ limits:
 After setup, the system works automatically:
 
 - **Automatically**: every day at 2:00 and 14:00 UTC
-- **Manually**: through "Actions" tab → "Manual PDF Compression" → "Run workflow"
+- Manually: via "Actions" → "PDF Compressor Bot" → "Run workflow"
 
 ## 📖 Usage
 
@@ -97,9 +97,11 @@ Simply place PDF files in the `/PDF/Input` folder in your Mega account. The syst
 5. Delete original files (with backup)
 6. Send report to Telegram
 
+Note: By default, the workflow uses `/Incoming shares/WI/PDF/Input` as source and `/Incoming shares/WI/PDF/Compressed` as target (you can override via workflow inputs).
+
 ### Manual Run
 
-For manual run, go to Actions → Manual PDF Compression and specify parameters:
+For manual run, go to Actions → PDF Compressor Bot → Run workflow and specify parameters:
 
 - **Source folder**: source folder (e.g., `/PDF/Input`)
 - **Target folder**: folder for compressed files
@@ -250,8 +252,8 @@ python src/main.py \
 # Test compressor
 python src/compressor.py
 
-# Test Mega client
-python src/mega_client.py
+# Test rclone client
+python src/rclone_client.py
 
 # Test configuration
 python src/config.py
@@ -262,12 +264,11 @@ python src/config.py
 ```
 pdf-compressor/
 ├── .github/workflows/       # GitHub Actions
-│   ├── compress-pdfs.yml   # Main workflow
-│   └── manual-trigger.yml  # Manual trigger
+│   └── compress-pdfs.yml   # Main workflow
 ├── src/                     # Source code
 │   ├── main.py             # Main script
 │   ├── compressor.py       # PDF compression logic
-│   ├── mega_client.py      # Mega client
+│   ├── rclone_client.py    # Mega via rclone client
 │   ├── config.py           # Configuration management
 │   └── utils.py            # Utilities
 ├── scripts/                 # Helper scripts
@@ -370,7 +371,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- [mega.py](https://github.com/richardpenman/mega.py) - Python client for Mega
+- [rclone](https://rclone.org/) - CLI for cloud storage (Mega), used instead of mega.py
 - [pikepdf](https://github.com/pikepdf/pikepdf) - PDF manipulation in Python
 - [Ghostscript](https://www.ghostscript.com/) - Professional PDF compression
 - [QPDF](https://github.com/qpdf/qpdf) - PDF tools
@@ -381,15 +382,7 @@ MIT License. See [LICENSE](LICENSE) for details.
   
 **🗜️ Save cloud space automatically!**
 
-[🐛 Report Bug](https://github.com/username/pdf-compressor/issues) • [💡 Request Feature](https://github.com/username/pdf-compressor/issues) • [📚 Wiki](https://github.com/username/pdf-compressor/wiki)
+[🐛 Report Bug](https://github.com/PtOlga/pdf-compressor/issues) • [💡 Request Feature](https://github.com/PtOlga/pdf-compressor/issues) • [📚 Wiki](https://github.com/PtOlga/pdf-compressor/wiki)
 
 </div>
 
-## 📊 Recent Statistics
-
-- **Last run:** 2025-10-30
-- **Files processed:** 0
-- **Space saved:** 0 B (0.0%)
-- **Compression level:** medium
-
-*Statistics updated automatically after each compression job.*

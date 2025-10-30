@@ -124,8 +124,8 @@ jobs:
         
     - name: Run PDF compression
       env:
-        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/pdf/Input' }}
-        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/pdf/Compressed' }}
+        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Incoming shares/WI/PDF/Input' }}
+        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/Incoming shares/WI/PDF/Compressed' }}
         COMPRESSION_LEVEL: ${{ github.event.inputs.compression_level || 'medium' }}
         MAX_FILES: ${{ github.event.inputs.max_files || '50' }}
         DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
@@ -159,19 +159,7 @@ jobs:
           temp/report.md
         retention-days: 30
         
-    - name: Update README stats
-      if: success()
-      run: |
-        python scripts/update_readme_stats.py
-        
-        if [[ -n "$(git status --porcelain)" ]]; then
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add README.md
-          git commit -m "📊 Update compression stats [skip ci]" || exit 0
-          git push
-        fi
-        
+
     - name: Create GitHub Issue on failure
       if: failure()
       uses: actions/github-script@v6
@@ -216,8 +204,8 @@ jobs:
           **Triggered by:** ${{ github.event_name }}
           
           **Parameters:**
-          - Source Folder: \`${{ github.event.inputs.source_folder || '/pdf/Input' }}\`
-          - Target Folder: \`${{ github.event.inputs.target_folder || '/pdf/Compressed' }}\`
+          - Source Folder: \`${{ github.event.inputs.source_folder || '/Incoming shares/WI/PDF/Input' }}\`
+          - Target Folder: \`${{ github.event.inputs.target_folder || '/Incoming shares/WI/PDF/Compressed' }}\`
           - Compression Level: \`${{ github.event.inputs.compression_level || 'medium' }}\`
           - Max Files: \`${{ github.event.inputs.max_files || '50' }}\`
           
