@@ -12,12 +12,12 @@ on:
       source_folder:
         description: 'Mega folder path to process'
         required: false
-        default: '/Cloud Drive/pdf/Input'
+        default: '/pdf/Input'
         type: string
       target_folder:
         description: 'Mega folder for compressed files'
         required: false
-        default: '/Cloud Drive/pdf/Compressed'
+        default: '/pdf/Compressed'
         type: string
       compression_level:
         description: 'Compression level'
@@ -124,8 +124,8 @@ jobs:
         
     - name: Run PDF compression
       env:
-        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Cloud Drive/pdf/Input' }}
-        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/Cloud Drive/pdf/Compressed' }}
+        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/pdf/Input' }}
+        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/pdf/Compressed' }}
         COMPRESSION_LEVEL: ${{ github.event.inputs.compression_level || 'medium' }}
         MAX_FILES: ${{ github.event.inputs.max_files || '50' }}
         DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
@@ -216,8 +216,8 @@ jobs:
           **Triggered by:** ${{ github.event_name }}
           
           **Parameters:**
-          - Source Folder: \`${{ github.event.inputs.source_folder || '/Cloud Drive/pdf/Input' }}\`
-          - Target Folder: \`${{ github.event.inputs.target_folder || '/Cloud Drive/pdf/Compressed' }}\`
+          - Source Folder: \`${{ github.event.inputs.source_folder || '/pdf/Input' }}\`
+          - Target Folder: \`${{ github.event.inputs.target_folder || '/pdf/Compressed' }}\`
           - Compression Level: \`${{ github.event.inputs.compression_level || 'medium' }}\`
           - Max Files: \`${{ github.event.inputs.max_files || '50' }}\`
           
