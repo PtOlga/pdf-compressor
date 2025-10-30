@@ -19,6 +19,7 @@ from utils import setup_logging, format_file_size, format_duration, print_banner
 from config import get_config
 from compressor import PDFCompressor
 from rclone_client import RcloneClient
+from megacmd_client import MegaWebDAVClient
 
 
 class PDFBatchCompressor:
@@ -125,16 +126,26 @@ class PDFBatchCompressor:
     def _initialize_clients(self):
         """Инициализация Mega клиента и компрессора"""
         try:
-            # Mega клиент
-            self.mega_client = RcloneClient()
-            
+            # Mega клиент: используем MEGAcmd (WebDAV), если путь из Incoming shares
+            use_megacmd = False
+            sf = (self.source_folder or '').lower()
+            tf = (self.target_folder or '').lower()
+            if '/incoming shares/' in sf or '/incoming shares/' in tf or sf.startswith('/incoming ') or tf.startswith('/incoming '):
+                use_megacmd = True
+
+            if use_megacmd:
+                self.logger.info("🌐 Использую MEGAcmd WebDAV клиент (поддержка Incoming shares)")
+                self.mega_client = MegaWebDAVClient()
+            else:
+                self.mega_client = RcloneClient()
+
             # PDF компрессор
             self.compressor = PDFCompressor(level=self.compression_level)
-            
+
             # Выводим информацию о компрессоре
             comp_info = self.compressor.get_compression_info()
             self.logger.info(f"🔧 Доступные инструменты: {list(comp_info['available_tools'].keys())}")
-            
+
         except Exception as e:
             self.logger.error(f"❌ Ошибка инициализации: {e}")
             raise
@@ -311,12 +322,20 @@ class PDFBatchCompressor:
         self.logger.info("=" * 60)
     
     def _cleanup(self):
-        """Очистка временных файлов"""
+        """Очистка временных файлов и корректное завершение клиентов"""
         try:
             cleanup_temp_files(max_age_hours=1)
             self.logger.debug("🧹 Временные файлы очищены")
         except Exception as e:
             self.logger.warning(f"⚠️ Ошибка очистки временных файлов: {e}")
+
+        # Корректно закрываем Mega-клиент (важно для MEGAcmd WebDAV)
+        try:
+            if self.mega_client and hasattr(self.mega_client, 'close'):
+                self.mega_client.close()
+                self.logger.debug("🔚 Mega-клиент корректно завершён")
+        except Exception as e:
+            self.logger.warning(f"⚠️ Ошибка завершения Mega-клиента: {e}")
 
 
 def main():

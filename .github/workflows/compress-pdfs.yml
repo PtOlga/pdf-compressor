@@ -2,11 +2,11 @@ name: PDF Compressor Bot
 
 on:
   schedule:
-    # Каждый день в 2:00 UTC (утром) 
+    # Каждый день в 2:00 UTC (утром)
     - cron: '0 2 * * *'
-    # И в 14:00 UTC (днем)  
+    # И в 14:00 UTC (днем)
     - cron: '0 14 * * *'
-  
+
   workflow_dispatch:
     inputs:
       source_folder:
@@ -50,45 +50,46 @@ jobs:
   compress-pdfs:
     runs-on: ubuntu-latest
     timeout-minutes: 300  # 5 часов максимум
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
         cache: 'pip'
-        
+
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y ghostscript qpdf poppler-utils
-        
+        sudo apt-get install -y ghostscript qpdf poppler-utils megacmd
+
         # Install rclone
         echo "Installing rclone..."
         curl https://rclone.org/install.sh | sudo bash
-        
+
         # Verify installations
         echo "Verifying installations..."
         gs --version
         qpdf --version
         rclone version
-        
+        mega-version || mega-help || true
+
     - name: Install Python dependencies
       run: |
         pip install --upgrade pip
         pip install -r requirements.txt
-        
+
     - name: Create temp directories
       run: |
         mkdir -p temp/{input,output,logs,backup}
-        
+
     - name: Validate configuration
       run: |
         python src/config.py
-        
+
     - name: Test components
       run: |
         echo "Testing PDF compressor..."
@@ -97,31 +98,37 @@ jobs:
         sys.path.insert(0, 'src')
         from compressor import PDFCompressor
         from utils import setup_logging
-        
         setup_logging(level='INFO')
         compressor = PDFCompressor(level='medium')
         info = compressor.get_compression_info()
         print('Available tools:', info['available_tools'])
         print('Configuration OK ✅')
         "
-        
+
         echo "Testing rclone client..."
         python -c "
         import sys
         sys.path.insert(0, 'src')
         from rclone_client import RcloneClient
         from utils import setup_logging
-        
         setup_logging(level='INFO')
         print('RcloneClient module loaded successfully ✅')
         "
-        
+
+        echo "Testing MEGAcmd client import..."
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        from megacmd_client import MegaWebDAVClient  # noqa: F401
+        print('MegaWebDAVClient module loaded successfully ✅')
+        "
+
     - name: "Diagnostic: Test Mega credentials"
       run: |
         echo "Running Mega credentials diagnostic..."
         python scripts/test_mega_credentials.py || true
         echo "Diagnostic complete (non-blocking)"
-        
+
     - name: Run PDF compression
       env:
         SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Incoming shares/WI/PDF/Input' }}
@@ -138,17 +145,17 @@ jobs:
           --log-file "temp/logs/compression.log" \
           --log-level "INFO" \
           $( [[ "$DRY_RUN" == "true" ]] && echo "--dry-run" || echo "" )
-          
+
     - name: Generate report
       if: always()
       run: |
         python scripts/generate_report.py temp/logs/compression.log > temp/report.md
-        
+
     - name: Send Telegram notification
       if: always() && env.TELEGRAM_BOT_TOKEN != ''
       run: |
         python scripts/send_notification.py temp/report.md
-        
+
     - name: Upload logs as artifacts
       if: always()
       uses: actions/upload-artifact@v4
@@ -158,7 +165,7 @@ jobs:
           temp/logs/
           temp/report.md
         retention-days: 30
-        
+
 
     - name: Create GitHub Issue on failure
       if: failure()
@@ -167,7 +174,7 @@ jobs:
         script: |
           const fs = require('fs');
           const path = require('path');
-          
+
           // Читаем лог файл
           let logContent = '';
           try {
@@ -175,7 +182,7 @@ jobs:
           } catch (error) {
             logContent = 'Log file not found';
           }
-          
+
           // Читаем статистику
           let statsContent = '';
           try {
@@ -193,33 +200,33 @@ jobs:
           } catch (error) {
             statsContent = 'Statistics not available';
           }
-          
+
           // Создаем Issue
           const issueTitle = `PDF Compression Failed - ${new Date().toISOString().split('T')[0]}`;
           const issueBody = `
           # 🚨 PDF Compression Job Failed
-          
+
           **Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
+
           **Triggered by:** ${{ github.event_name }}
-          
+
           **Parameters:**
           - Source Folder: \`${{ github.event.inputs.source_folder || '/Incoming shares/WI/PDF/Input' }}\`
           - Target Folder: \`${{ github.event.inputs.target_folder || '/Incoming shares/WI/PDF/Compressed' }}\`
           - Compression Level: \`${{ github.event.inputs.compression_level || 'medium' }}\`
           - Max Files: \`${{ github.event.inputs.max_files || '50' }}\`
-          
+
           ${statsContent}
-          
+
           ## 📋 Error Log (last 3000 characters):
           \`\`\`
           ${logContent.slice(-3000)}
           \`\`\`
-          
+
           ---
           *This issue was created automatically by GitHub Actions*
           `;
-          
+
           github.rest.issues.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -227,21 +234,21 @@ jobs:
             body: issueBody,
             labels: ['bug', 'automated', 'pdf-compression']
           });
-          
+
     - name: Comment on success
       if: success() && github.event_name == 'workflow_dispatch'
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
-          
+
           // Читаем статистику
           let statsContent = 'Statistics not available';
           try {
             const statsPath = 'temp/logs/stats.json';
             if (fs.existsSync(statsPath)) {
               const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-              
+
               const formatFileSize = (bytes) => {
                 if (bytes === 0) return '0 B';
                 const k = 1024;
@@ -249,14 +256,14 @@ jobs:
                 const i = Math.floor(Math.log(bytes) / Math.log(k));
                 return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
               };
-              
+
               statsContent = `## 📊 Compression Results
-          
+
           ✅ **Successfully processed:** ${stats.processed_files || 0} files
           ${stats.failed_files > 0 ? `❌ **Failed:** ${stats.failed_files} files` : ''}
           ⏱️ **Duration:** ${Math.round(stats.duration || 0)} seconds
           🗜️ **Compression level:** ${stats.compression_level}
-          
+
           📊 **Space savings:**
           - Before: ${formatFileSize(stats.total_size_before || 0)}
           - After: ${formatFileSize(stats.total_size_after || 0)}
@@ -266,19 +273,19 @@ jobs:
           } catch (error) {
             console.error('Error reading stats:', error);
           }
-          
+
           // Создаем комментарий только если workflow был запущен вручную
           const commentBody = `
           # ✅ PDF Compression Completed Successfully
-          
+
           **Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          
+
           ${statsContent}
-          
+
           ---
           *Compression completed at ${new Date().toISOString()}*
           `;
-          
+
           // Если есть открытые issue, комментируем последний
           const issues = await github.rest.issues.listForRepo({
             owner: context.repo.owner,
@@ -289,7 +296,7 @@ jobs:
             direction: 'desc',
             per_page: 1
           });
-          
+
           if (issues.data.length > 0) {
             await github.rest.issues.createComment({
               owner: context.repo.owner,
