@@ -124,7 +124,8 @@ class MegaWebDAVClient:
         if not m:
             raise Exception(f"Could not determine MEGAcmd WebDAV URL from output:\n{output}")
 
-        self._served_url = m.group(1).rstrip('/')
+        # Use the entire match as URL (works for both patterns)
+        self._served_url = m.group(0).rstrip('/')
         self.logger.info(f"🔗 MEGA WebDAV URL: {self._served_url}")
         # Give the server a moment to be ready
         time.sleep(1)
