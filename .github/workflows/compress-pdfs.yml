@@ -63,12 +63,21 @@ jobs:
 
     - name: Install system dependencies
       run: |
+        set -e
         sudo apt-get update
-        sudo apt-get install -y ghostscript qpdf poppler-utils megacmd
+        sudo apt-get install -y ghostscript qpdf poppler-utils gnupg curl ca-certificates
+
+        # Add MEGA official APT repo (detect Ubuntu version dynamically)
+        . /etc/os-release
+        echo "Detected Ubuntu ${VERSION_ID} (${VERSION_CODENAME})"
+        curl -fsSL "https://mega.nz/linux/repo/xUbuntu_${VERSION_ID}/Release.key" | sudo gpg --dearmor -o /usr/share/keyrings/mega-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/mega-archive-keyring.gpg] https://mega.nz/linux/repo/xUbuntu_${VERSION_ID}/ ./" | sudo tee /etc/apt/sources.list.d/meganz.list
+        sudo apt-get update
+        sudo apt-get install -y megacmd
 
         # Install rclone
         echo "Installing rclone..."
-        curl https://rclone.org/install.sh | sudo bash
+        curl -fsSL https://rclone.org/install.sh | sudo bash
 
         # Verify installations
         echo "Verifying installations..."
