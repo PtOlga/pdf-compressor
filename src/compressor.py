@@ -400,8 +400,7 @@ class PDFCompressor:
                     output_path,
                     compress_streams=True,
                     stream_decode_level=pikepdf.StreamDecodeLevel.all,
-                    object_stream_mode=pikepdf.ObjectStreamMode.generate,
-                    minimize_size=True
+                    object_stream_mode=pikepdf.ObjectStreamMode.generate
                 )
                 return {'success': True, 'error': None}
         except Exception as e:
@@ -418,7 +417,7 @@ class PDFCompressor:
                 except Exception as e:
                     self.logger.debug(f"⚠️ PyPDF не смог сжать потоки: {e}")
                 writer.add_page(page)
-            writer.remove_duplicates()
+            # writer.remove_duplicates()  # removed: not available in pypdf 4.x
             with open(output_path, 'wb') as f:
                 writer.write(f)
             return {'success': True, 'error': None}
