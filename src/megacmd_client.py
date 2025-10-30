@@ -115,31 +115,41 @@ class MegaWebDAVClient:
             output = proc.stdout or ''
 
         # Extract base URL (without trailing path components)
-        # MEGAcmd outputs something like: http://127.0.0.1:4443/TOKEN or http://127.0.0.1:4443/TOKEN/Cloud%20Drive
-        # We want just the base: http://127.0.0.1:4443/TOKEN
+        # MEGAcmd outputs something like: 
+        #   http://127.0.0.1:4443/TOKEN
+        #   http://127.0.0.1:4443/TOKEN/Cloud%20Drive
+        # We want ONLY the base: http://127.0.0.1:4443/TOKEN
         
-        m = re.search(r"(https?://127\.0\.0\.1:\d+/[^/\s]+)", output)
+        # First, try to match the full URL including any path
+        m = re.search(r"(https?://127\.0\.0\.1:\d+/\S+)", output)
         if not m:
             # Last attempt: call 'mega-webdav' (list) and parse
             listing2 = subprocess.run(['mega-webdav'], capture_output=True, text=True, timeout=10)
-            m = re.search(r"(https?://127\.0\.0\.1:\d+/[^/\s]+)", listing2.stdout or '')
+            m = re.search(r"(https?://127\.0\.0\.1:\d+/\S+)", listing2.stdout or '')
         
         if not m:
             raise Exception(f"Could not determine MEGAcmd WebDAV URL from output:\n{output}")
 
-        # Use the base URL (just host:port/token, no path)
-        base_url = m.group(1).rstrip('/')
+        # Extract the full matched URL
+        full_url = m.group(1).rstrip('/')
         
-        # Remove any trailing path components (Cloud Drive, Incoming Shares, etc)
-        # Keep only http://host:port/token
-        if '/' in base_url:
-            parts = base_url.split('/')
-            # Keep protocol://host:port/token (first 4 parts)
-            if len(parts) >= 4:
-                base_url = '/'.join(parts[:4])
+        # Now extract ONLY the base (protocol://host:port/token)
+        # Split by '/' and keep only first 4 parts
+        # Example: ['http:', '', '127.0.0.1:4443', 'iVlkWbDZ', 'Cloud%20Drive']
+        #       -> ['http:', '', '127.0.0.1:4443', 'iVlkWbDZ']
+        parts = full_url.split('/')
+        
+        if len(parts) >= 4:
+            # Keep only protocol://host:port/token (first 4 parts)
+            base_url = '/'.join(parts[:4])
+        else:
+            # Fallback to full URL if unexpected format
+            base_url = full_url
         
         self._served_url = base_url
-        self.logger.info(f"🔗 MEGA WebDAV URL: {self._served_url}")
+        self.logger.info(f"🔗 MEGA WebDAV base URL: {self._served_url}")
+        if len(parts) > 4:
+            self.logger.debug(f"   (Stripped trailing path: /{'/'.join(parts[4:])})")
         
         # Give the server a moment to be ready
         time.sleep(1)
