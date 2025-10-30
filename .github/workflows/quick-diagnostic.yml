@@ -1,0 +1,75 @@
+name: Quick Diagnostic - Find Correct Path
+
+on:
+  workflow_dispatch:
+
+env:
+  MEGA_EMAIL: ${{ secrets.MEGA_EMAIL }}
+  MEGA_PASSWORD: ${{ secrets.MEGA_PASSWORD }}
+
+jobs:
+  quick-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Install rclone
+      run: |
+        curl https://rclone.org/install.sh | sudo bash
+        
+    - name: Find correct path
+      run: |
+        export RCLONE_CONFIG_MEGA_TYPE=mega
+        export RCLONE_CONFIG_MEGA_USER="${MEGA_EMAIL}"
+        export RCLONE_CONFIG_MEGA_PASS="${MEGA_PASSWORD}"
+        
+        echo "=========================================="
+        echo "SEARCHING FOR CORRECT PATH"
+        echo "=========================================="
+        echo ""
+        
+        # Check what's in Incoming shares
+        echo "1. Shared folders:"
+        rclone lsd "mega:/Incoming shares"
+        echo ""
+        
+        # Check WI structure
+        echo "2. WI folder contents:"
+        rclone lsd "mega:/Incoming shares/WI" --max-depth 2
+        echo ""
+        
+        # Try to find the working path
+        echo "3. Testing paths:"
+        echo ""
+        
+        FOUND=0
+        
+        # Test all common variations
+        for pdf in PDF pdf Pdf PDFs pdfs; do
+          for input in Input input INPUT; do
+            TEST_PATH="mega:/Incoming shares/WI/${pdf}/${input}"
+            echo -n "Testing: ${TEST_PATH} ... "
+            
+            if rclone lsd "${TEST_PATH}" >/dev/null 2>&1; then
+              echo "✅ WORKS!"
+              echo ""
+              echo "👉 USE THIS PATH: /Incoming shares/WI/${pdf}/${input}"
+              echo ""
+              FOUND=1
+              
+              # Show first few files
+              echo "Sample files:"
+              rclone lsf "${TEST_PATH}" --max-depth 1 --files-only | grep -i ".pdf$" | head -5
+              echo ""
+            else
+              echo "❌ Not found"
+            fi
+          done
+        done
+        
+        if [ $FOUND -eq 0 ]; then
+          echo ""
+          echo "⚠️ Standard paths not found. Showing full structure:"
+          echo ""
+          rclone tree "mega:/Incoming shares/WI" --max-depth 3 || rclone lsd "mega:/Incoming shares/WI" --max-depth 3
+        fi
