@@ -126,15 +126,22 @@ class PDFBatchCompressor:
     def _initialize_clients(self):
         """Инициализация Mega клиента и компрессора"""
         try:
-            # Mega клиент: используем MEGAcmd (WebDAV), если путь из Incoming shares
+            # Mega client: use MEGAcmd (WebDAV) for "Incoming shares" or "Shared items"
             use_megacmd = False
             sf = (self.source_folder or '').lower()
             tf = (self.target_folder or '').lower()
-            if '/incoming shares/' in sf or '/incoming shares/' in tf or sf.startswith('/incoming ') or tf.startswith('/incoming '):
+
+            def has_shared_root(p: str) -> bool:
+                return (
+                    '/incoming shares/' in p or p.startswith('/incoming ') or
+                    '/shared items/' in p or p.startswith('/shared ')
+                )
+
+            if has_shared_root(sf) or has_shared_root(tf):
                 use_megacmd = True
 
             if use_megacmd:
-                self.logger.info("🌐 Использую MEGAcmd WebDAV клиент (поддержка Incoming shares)")
+                self.logger.info("🌐 Использую MEGAcmd WebDAV клиент (Shared items / Incoming shares)")
                 self.mega_client = MegaWebDAVClient()
             else:
                 self.mega_client = RcloneClient()

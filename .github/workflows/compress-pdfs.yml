@@ -1,3 +1,4 @@
+
 name: PDF Compressor Bot
 
 on:
@@ -12,12 +13,12 @@ on:
       source_folder:
         description: 'Mega folder path to process'
         required: false
-        default: '/Incoming shares/WI/PDF/Input'
+        default: '/Shared items/WI/PDF/Input'
         type: string
       target_folder:
         description: 'Mega folder for compressed files'
         required: false
-        default: '/Incoming shares/WI/PDF/Compressed'
+        default: '/Shared items/WI/PDF/Compressed'
         type: string
       compression_level:
         description: 'Compression level'
@@ -140,8 +141,8 @@ jobs:
 
     - name: Run PDF compression
       env:
-        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Incoming shares/WI/PDF/Input' }}
-        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/Incoming shares/WI/PDF/Compressed' }}
+        SOURCE_FOLDER: ${{ github.event.inputs.source_folder || '/Shared items/WI/PDF/Input' }}
+        TARGET_FOLDER: ${{ github.event.inputs.target_folder || '/Shared items/WI/PDF/Compressed' }}
         COMPRESSION_LEVEL: ${{ github.event.inputs.compression_level || 'medium' }}
         MAX_FILES: ${{ github.event.inputs.max_files || '50' }}
         DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
@@ -175,16 +176,14 @@ jobs:
           temp/report.md
         retention-days: 30
 
-
     - name: Create GitHub Issue on failure
       if: failure()
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
-          const path = require('path');
 
-          // Читаем лог файл
+          // Read log file
           let logContent = '';
           try {
             logContent = fs.readFileSync('temp/logs/compression.log', 'utf8');
@@ -192,49 +191,59 @@ jobs:
             logContent = 'Log file not found';
           }
 
-          // Читаем статистику
+          // Read statistics
           let statsContent = '';
           try {
             const statsPath = 'temp/logs/stats.json';
-            if (fs.existsSync(statsPath)) {
-              const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-              statsContent = `
-          ## 📊 Statistics
-          - **Processed Files:** ${stats.processed_files || 0}
-          - **Failed Files:** ${stats.failed_files || 0}
-          - **Total Duration:** ${stats.duration || 0} seconds
-          - **Compression Level:** ${stats.compression_level || 'unknown'}
-              `;
-            }
+            const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
+
+            const formatFileSize = (bytes) => {
+              if (!bytes) return '0 B';
+              const k = 1024;
+              const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+              const i = Math.floor(Math.log(bytes) / Math.log(k));
+              return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            };
+
+            const percentSaved = (stats.total_percent_saved != null)
+              ? Number(stats.total_percent_saved).toFixed(1)
+              : (stats.total_size_before > 0
+                ? (((stats.total_bytes_saved || 0) / stats.total_size_before) * 100).toFixed(1)
+                : '0.0');
+
+            statsContent = `## 📊 Compression Results
+
+✅ **Successfully processed:** ${stats.processed_files || 0} files
+${(stats.failed_files || 0) > 0 ? `❌ **Failed:** ${stats.failed_files} files` : ''}
+⏱️ **Duration:** ${Math.round(stats.duration || 0)} seconds
+🗜️ **Compression level:** ${stats.compression_level || 'unknown'}
+
+📊 **Space savings:**
+- Before: ${formatFileSize(stats.total_size_before || 0)}
+- After: ${formatFileSize(stats.total_size_after || 0)}
+- Saved: ${formatFileSize(stats.total_bytes_saved || 0)} (${percentSaved}%)`;
           } catch (error) {
             statsContent = 'Statistics not available';
           }
 
-          // Создаем Issue
-          const issueTitle = `PDF Compression Failed - ${new Date().toISOString().split('T')[0]}`;
-          const issueBody = `
-          # 🚨 PDF Compression Job Failed
-
-          **Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-          **Triggered by:** ${{ github.event_name }}
-
-          **Parameters:**
-          - Source Folder: \`${{ github.event.inputs.source_folder || '/Incoming shares/WI/PDF/Input' }}\`
-          - Target Folder: \`${{ github.event.inputs.target_folder || '/Incoming shares/WI/PDF/Compressed' }}\`
-          - Compression Level: \`${{ github.event.inputs.compression_level || 'medium' }}\`
-          - Max Files: \`${{ github.event.inputs.max_files || '50' }}\`
-
-          ${statsContent}
-
-          ## 📋 Error Log (last 3000 characters):
-          \`\`\`
-          ${logContent.slice(-3000)}
-          \`\`\`
-
-          ---
-          *This issue was created automatically by GitHub Actions*
-          `;
+          // Create Issue
+          const issueDate = new Date().toISOString().split('T')[0];
+          const issueTitle = 'PDF Compression Failed - ' + issueDate;
+          const issueBody = '# PDF Compression Job Failed\n\n' +
+            '**Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n' +
+            '**Triggered by:** ${{ github.event_name }}\n\n' +
+            '**Parameters:**\n' +
+            '- Source Folder: `${{ github.event.inputs.source_folder || ' + "'/Shared items/WI/PDF/Input'" + ' }}`\n' +
+            '- Target Folder: `${{ github.event.inputs.target_folder || ' + "'/Shared items/WI/PDF/Compressed'" + ' }}`\n' +
+            '- Compression Level: `${{ github.event.inputs.compression_level || ' + "'medium'" + ' }}`\n' +
+            '- Max Files: `${{ github.event.inputs.max_files || ' + "'50'" + ' }}`\n\n' +
+            statsContent + '\n\n' +
+            '## Error Log (last 3000 characters):\n' +
+            '```\n' +
+            logContent.slice(-3000) + '\n' +
+            '```\n\n' +
+            '---\n' +
+            '*This issue was created automatically by GitHub Actions*';
 
           github.rest.issues.create({
             owner: context.repo.owner,
@@ -244,73 +253,18 @@ jobs:
             labels: ['bug', 'automated', 'pdf-compression']
           });
 
-    - name: Comment on success
+    - name: Post summary on success
       if: success() && github.event_name == 'workflow_dispatch'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-
-          // Читаем статистику
-          let statsContent = 'Statistics not available';
-          try {
-            const statsPath = 'temp/logs/stats.json';
-            if (fs.existsSync(statsPath)) {
-              const stats = JSON.parse(fs.readFileSync(statsPath, 'utf8'));
-
-              const formatFileSize = (bytes) => {
-                if (bytes === 0) return '0 B';
-                const k = 1024;
-                const sizes = ['B', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-              };
-
-              statsContent = `## 📊 Compression Results
-
-          ✅ **Successfully processed:** ${stats.processed_files || 0} files
-          ${stats.failed_files > 0 ? `❌ **Failed:** ${stats.failed_files} files` : ''}
-          ⏱️ **Duration:** ${Math.round(stats.duration || 0)} seconds
-          🗜️ **Compression level:** ${stats.compression_level}
-
-          📊 **Space savings:**
-          - Before: ${formatFileSize(stats.total_size_before || 0)}
-          - After: ${formatFileSize(stats.total_size_after || 0)}
-          - Saved: ${formatFileSize(stats.total_bytes_saved || 0)} (${(stats.total_percent_saved || 0).toFixed(1)}%)
-              `;
-            }
-          } catch (error) {
-            console.error('Error reading stats:', error);
-          }
-
-          // Создаем комментарий только если workflow был запущен вручную
-          const commentBody = `
-          # ✅ PDF Compression Completed Successfully
-
-          **Run ID:** [${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
-          ${statsContent}
-
-          ---
-          *Compression completed at ${new Date().toISOString()}*
-          `;
-
-          // Если есть открытые issue, комментируем последний
-          const issues = await github.rest.issues.listForRepo({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            labels: 'pdf-compression',
-            state: 'open',
-            sort: 'created',
-            direction: 'desc',
-            per_page: 1
-          });
-
-          if (issues.data.length > 0) {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issues.data[0].number,
-              body: commentBody
-            });
-          }
+      run: |
+        set -e
+        echo "## ✅ Compression Succeeded" >> $GITHUB_STEP_SUMMARY
+        if [ -f temp/report.md ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat temp/report.md >> $GITHUB_STEP_SUMMARY
+        elif [ -f temp/logs/stats.json ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Stats" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat temp/logs/stats.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi

@@ -155,14 +155,15 @@ class MegaWebDAVClient:
         time.sleep(1)
 
     def _setup_rclone_webdav(self):
-        """FIXED: Configure rclone to use base WebDAV URL without path assumptions"""
         assert self._served_url, "WebDAV URL not set"
         self.logger.info("🔧 Configuring rclone WebDAV remote for MEGA...")
 
-        # Use the base URL without any path modifications
-        # MEGAcmd serves root (/) which includes both Cloud Drive and Incoming Shares
-        url_for_remote = self._served_url
-        
+        url_for_remote = self._served_url.rstrip('/')
+        if '/Cloud%20Drive' in url_for_remote:
+            url_for_remote = url_for_remote.replace('/Cloud%20Drive', '/Incoming%20Shares')
+        elif not url_for_remote.endswith('/Incoming%20Shares'):
+            url_for_remote = f"{url_for_remote}/Incoming%20Shares"
+
         self.logger.debug(f"Using WebDAV URL: {url_for_remote}")
         
         # Best-effort: remove existing remote to avoid stale URL
@@ -235,52 +236,38 @@ class MegaWebDAVClient:
 
     @staticmethod
     def _normalize_incoming_shares_path(path: str) -> str:
-        """Normalize path to use proper case for Incoming Shares folder"""
+        """Normalize path so that the shared-root is canonical 'Incoming Shares'.
+        Accepts both 'Incoming shares' and 'Shared items' (UI label) variants.
+        """
         if not path:
             return path
-        
-        # Remove leading/trailing slashes for easier processing
         p = path.strip().strip('/')
-        
-        # Split into parts
+        if not p:
+            return '/'
         parts = p.split('/')
-        
-        if not parts:
-            return path
-        
-        # Check if first part is a variant of "Incoming shares"
-        first = parts[0].lower()
-        
-        if first in ['incoming shares', 'incoming_shares', 'incomingshares']:
-            # Replace with canonical name
+        first = parts[0].lower() if parts else ''
+        # One-part variants
+        if first in ['incoming shares', 'incoming_shares', 'incomingshares',
+                     'shared items', 'shared_items', 'shareditems']:
             parts[0] = 'Incoming Shares'
         elif len(parts) > 1:
-            # Check for two-part name
+            # Two-part variants
             if first == 'incoming' and parts[1].lower() in ['shares', 'share']:
-                parts[0] = 'Incoming'
-                parts[1] = 'Shares'
-                # Rejoin as single part
                 parts = ['Incoming Shares'] + parts[2:]
-        
-        # Rebuild path with leading slash
+            elif first == 'shared' and parts[1].lower() in ['items', 'item']:
+                parts = ['Incoming Shares'] + parts[2:]
         return '/' + '/'.join(parts)
 
     def _rel_path(self, path: str) -> str:
-        """Convert an absolute MEGA path into a relative path for WebDAV.
-        
-        WebDAV serves MEGA root, so we just need to remove the leading slash
-        and ensure proper path format.
-        """
         if not path:
             return ''
-        
-        # Normalize the path first
         p = self._normalize_incoming_shares_path(path).strip()
-        
-        # Remove leading slash for WebDAV (it expects relative paths)
         if p.startswith('/'):
             p = p[1:]
-        
+        if p.lower().startswith('incoming shares/'):
+            p = p[len('Incoming Shares/'):]
+        elif p.lower().startswith('shared items/'):
+            p = p[len('Shared items/'):]
         return p
 
     def list_pdf_files(self, folder_path: str) -> List[Dict[str, Any]]:
@@ -439,3 +426,4 @@ class MegaWebDAVClient:
             subprocess.run(['mega-logout'], capture_output=True, text=True)
         except Exception:
             pass
+
