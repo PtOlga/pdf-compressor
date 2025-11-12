@@ -392,4 +392,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 - **Space saved:** 0 B (0.0%)
 - **Compression level:** medium
 
-*Statistics updated automatically after each compression job.*
+Note: README statistics are no longer auto-updated by the workflow. Check GitHub Actions logs/artifacts or Telegram notifications for results.

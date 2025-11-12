@@ -158,20 +158,7 @@ jobs:
           temp/logs/
           temp/report.md
         retention-days: 30
-        
-    - name: Update README stats
-      if: success()
-      run: |
-        python scripts/update_readme_stats.py
-        
-        if [[ -n "$(git status --porcelain)" ]]; then
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add README.md
-          git commit -m "📊 Update compression stats [skip ci]" || exit 0
-          git push
-        fi
-        
+
     - name: Create GitHub Issue on failure
       if: failure()
       uses: actions/github-script@v6
