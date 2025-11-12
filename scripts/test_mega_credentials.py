@@ -31,7 +31,7 @@ def test_credentials():
     
     # Mask email and password for display
     masked_email = f"{email[:3]}***@{email.split('@')[1] if '@' in email else '***'}"
-    masked_password = f"{'*' * (len(password) - 2)}{password[-2:]}"
+    masked_password = "[MASKED]"
     
     print(f"   ✅ MEGA_EMAIL: {masked_email}")
     print(f"   ✅ MEGA_PASSWORD: {masked_password} (length: {len(password)})")

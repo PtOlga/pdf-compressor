@@ -105,20 +105,24 @@ class RcloneClient:
                 config_dir.mkdir(parents=True, exist_ok=True)
                 config_file = config_dir / 'rclone.conf'
                 
-                # Create config using rclone config create
-                create_result = subprocess.run(
-                    ['rclone', 'config', 'create', self.remote_name, 'mega',
-                     f'user={email}', f'pass={password}'],
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-                
-                if create_result.returncode == 0:
-                    self.logger.debug("✅ Config file created")
+                # Create config using rclone config create (use obscured password)
+                obscured_password = self._obscure_password(password)
+                if obscured_password:
+                    create_result = subprocess.run(
+                        ['rclone', 'config', 'create', self.remote_name, 'mega',
+                         f'user={email}', f'pass={obscured_password}'],
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+
+                    if create_result.returncode == 0:
+                        self.logger.debug("✅ Config file created")
+                    else:
+                        self.logger.debug(f"⚠️ Config create warning: {create_result.stderr}")
                 else:
-                    self.logger.debug(f"⚠️ Config create warning: {create_result.stderr}")
-                
+                    self.logger.warning("⚠️ Skipping config file creation: could not obscure password safely")
+
                 self._check_quota()
                 return
             

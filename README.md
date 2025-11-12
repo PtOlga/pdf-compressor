@@ -114,23 +114,6 @@ For manual run, go to Actions → Manual PDF Compression and specify parameters:
 - **Telegram**: receive brief notifications
 - **Issues**: automatic creation on errors
 
-## 📊 Statistics
-
-The system maintains detailed statistics:
-
-```json
-{
-  "processed_files": 25,
-  "failed_files": 2,
-  "total_size_before": 150000000,
-  "total_size_after": 45000000,
-  "total_bytes_saved": 105000000,
-  "total_percent_saved": 70.0,
-  "duration": 245.6,
-  "compression_level": "medium"
-}
-```
-
 ## ⚙️ Configuration
 
 ### Main Settings
@@ -384,12 +367,3 @@ MIT License. See [LICENSE](LICENSE) for details.
 [🐛 Report Bug](https://github.com/username/pdf-compressor/issues) • [💡 Request Feature](https://github.com/username/pdf-compressor/issues) • [📚 Wiki](https://github.com/username/pdf-compressor/wiki)
 
 </div>
-
-## 📊 Recent Statistics
-
-- **Last run:** 2025-11-12
-- **Files processed:** 0
-- **Space saved:** 0 B (0.0%)
-- **Compression level:** medium
-
-Note: README statistics are no longer auto-updated by the workflow. Check GitHub Actions logs/artifacts or Telegram notifications for results.
